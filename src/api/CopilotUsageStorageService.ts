@@ -1,18 +1,21 @@
 // src/CopilotUsageStorageService.ts
 import { IUsageStorage } from './IUsageStorage';
 import { Metrics } from '../model/Metrics';
-import { getMetricsApi } from '../utils/GitHubApi';
+import { GitHubApi } from './GitHubApi_copilot_usage';
+import { Tenant } from '../model/Tenant';
 
 export class CopilotUsageStorageService {
     private storage: IUsageStorage;
+    private gitHubApi: GitHubApi;
 
-    constructor(storage: IUsageStorage) {
+    constructor(storage: IUsageStorage, tenant: Tenant, team?: string) {
         this.storage = storage;
+        this.gitHubApi = new GitHubApi(tenant, team);
     }
 
     public async saveUsageData(): Promise<boolean> {
         try {
-            const metrics = await getMetricsApi();
+            const metrics = await this.gitHubApi.getMetricsApi();
             if (!Array.isArray(metrics)) {
                 throw new Error('Result is not an array.');
             }
@@ -40,6 +43,4 @@ export class CopilotUsageStorageService {
             return [];
         }
     }
-
-
 }

@@ -1,33 +1,65 @@
 import * as fs from 'fs';
 import path from 'path';
 import { Metrics } from '../model/Metrics';
-import { getMetricsApi } from '../utils/GitHubApi';
+import { getMetricsApi } from './/GitHubApi';
 import { IUsageStorage } from './IUsageStorage';
-import config from '../config';
+
+import { Tenant } from '../model/Tenant';
+import { dir } from 'console';
 
 export class FileUsageStorage implements IUsageStorage {
-    private ScopeName: string = config.scope.name;
-    private dirName: string = '../../data';
-    private ScopeFileName: string = `${config.scope.type}_${config.scope.name}_metrics.json`;
-    private ScopeFilePath: string = path.join(__dirname, this.dirName, this.ScopeFileName);
+    
 
-    constructor() {
+    //private filePath: string = '';
+    private scopeName: string = '';
+    private scopeType: string = '';
+    private token: string = '';
+
+    private dirName: string = '../../data';
+
+    // full path of the file named by ScopeName_metrics.json and the directory is ../data
+    private ScopeFilePath: string = ''
+
+    // private ScopeName: string = config.scope.name;
+    // private dirName: string = '../../data';
+    // private ScopeFileName: string = `${config.scope.scopeType}_${config.scope.name}_metrics.json`;
+    // private ScopeFilePath: string = path.join(__dirname, this.dirName, this.ScopeFileName);
+
+    constructor(tenant: Tenant) {
+        this.initializeScope(tenant);
+        this.initializeFilePath(tenant);
+    }
+
+
+    public initializeScope(tenant: Tenant) {
+        // Initialize scope based on tenant information
+        this.scopeName = tenant.scopeName;
+        this.scopeType = tenant.scopeType;
+        this.token = tenant.token;
+    }
+
+    private initializeFilePath(tenant: Tenant) {
+        // Initialize file path based on tenant information
+     
+        const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
+        this.ScopeFilePath = path.join(__dirname, this.dirName, ScopeFileName);
+
         try{
         
-           // console.log('ScopeFilePath:', this.ScopeFilePath);
-            // to check if the ../data folder exists, if not, create it
-            if (!fs.existsSync(path.join(__dirname, this.dirName))) {
-                fs.mkdirSync(path.join(__dirname, this.dirName));
-            }
-            // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
-            if (!fs.existsSync(this.ScopeFilePath)) {
-                fs.writeFileSync(this.ScopeFilePath, '[]');
-            }
-        }
-        catch (error) {
-            console.error('Error in FileUsageStorage constructor:', error);
-        }
-       
+            // console.log('ScopeFilePath:', this.ScopeFilePath);
+             // to check if the ../data folder exists, if not, create it
+             if (!fs.existsSync(path.join(__dirname, this.dirName))) {
+                 fs.mkdirSync(path.join(__dirname, this.dirName));
+             }
+             // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
+             if (!fs.existsSync(this.ScopeFilePath)) {
+                 fs.writeFileSync(this.ScopeFilePath, '[]');
+             }
+         }
+         catch (error) {
+             console.error('Error in FileUsageStorage constructor:', error);
+         }
+        
     }
 
     private getCurrentTimeFormatted(): string {
@@ -40,7 +72,7 @@ export class FileUsageStorage implements IUsageStorage {
     }
 
     private generateTimerFileFullName(): string {
-        return path.join(__dirname, this.dirName, `${config.scope.type}_${this.ScopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+        return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
     }
 
     public async readUsageData(): Promise<Metrics[]> {
@@ -56,7 +88,7 @@ export class FileUsageStorage implements IUsageStorage {
     // This function is to save the fetched data to a file named by timer_filePath
     public async saveUsageData(): Promise<boolean> {
         try {
-          const metrics = await getMetricsApi();
+          const metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token);
           //console.log('Fetched metrics:', metrics);
     
           if (!Array.isArray(metrics)) {
@@ -83,7 +115,7 @@ export class FileUsageStorage implements IUsageStorage {
             try {
             if (!latestUsage) { 
                 console.log("No latest usage data provided. Will get it from API.");
-                latestUsage = await getMetricsApi();
+                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token);
             }
             if (!ScopeUsage) {
             // console.log("No existing data provided. Will get it from file.");

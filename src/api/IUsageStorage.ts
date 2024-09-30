@@ -1,7 +1,9 @@
 // src/api/IUsageStorage.ts
 import { Metrics } from '../model/Metrics';
+import { Tenant } from '../model/Tenant';
 
 export interface IUsageStorage {
+    initializeScope(tenant: Tenant): void;
     saveUsageData(metrics: Metrics[]): Promise<boolean>;
     readUsageData(): Promise<Metrics[]>;
     queryUsageData(since?: string, until?: string, page?: number, per_page?: number): Promise<Metrics[]>;
