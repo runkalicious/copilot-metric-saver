@@ -24,7 +24,7 @@ This project is designed to call the GitHub Copilot usage and seat API, save the
     npm install
     ```
 
-3. Configure the database and other settings in `config.js`.
+3. Configure the database and other settings in `.env`.
 
 ## Usage
 
@@ -32,7 +32,7 @@ This project is designed to call the GitHub Copilot usage and seat API, save the
 
 Start the server:
 ```sh
-npm start
+ts-node src/server.ts
 ```
 
 ### API Endpoints
