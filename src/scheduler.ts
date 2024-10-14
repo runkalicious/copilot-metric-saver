@@ -1,6 +1,6 @@
-import { UsageServiceFactory } from './api/UsageServiceFactory';
+import { CopilotServiceFactory } from './api/CopilotServiceFactory';
 
-const usageService = UsageServiceFactory.createUsageService();
+const usageService = CopilotServiceFactory.createUsageService();
 
 // run job every 10 minutes
 setInterval(async () => {

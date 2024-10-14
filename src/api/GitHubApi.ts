@@ -35,7 +35,10 @@ export const getMetricsApi = async (
       },
     }
   );
-  console.log('get metrics api called in githubapi.ts at ', new Date());
+  //console.log('get metrics api for ${scopename} called in githubapi.ts at ', new Date());
+  //for the console log, it neeeds to include the scopeName and the current date and time
+  console.log(`get metrics api for ${scopeName} called in githubapi.ts at ${new Date()}`);
+
 
   // Map the response data to Metrics instances
   const metricsData = response.data.map((item: any) => new Metrics(item));

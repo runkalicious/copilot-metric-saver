@@ -29,6 +29,7 @@ export class FileUsageStorage implements IUsageStorage {
         this.initializeScope(tenant);
         this.initializeFilePath(tenant);
     }
+    
 
 
     public initializeScope(tenant: Tenant) {
@@ -84,7 +85,7 @@ export class FileUsageStorage implements IUsageStorage {
             return [];
         }
     }
-
+/* 
     // This function is to save the fetched data to a file named by timer_filePath
     public async saveUsageData(): Promise<boolean> {
         try {
@@ -109,9 +110,30 @@ export class FileUsageStorage implements IUsageStorage {
           console.error('Error saving metrics:', error);
             return false;
         }
-      }
+      } */
+
+    public async saveUsageData(metrics?: Metrics[]): Promise<boolean> {
+        try {
+            if (!metrics) {
+                metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token);
+            }
+            if (!Array.isArray(metrics)) {
+                throw new Error('Result is not an array.');
+            }
+    
+            const dataToWrite = JSON.stringify(metrics, null, 2);
+            const fileFullName = this.generateTimerFileFullName();
+            fs.writeFileSync(fileFullName, dataToWrite);
+            console.log('Metrics saved successfully to file:', fileFullName);
+            await this.compareAndUpdateMetrics(metrics);
+            return true;
+        } catch (error) {
+            console.error('Error saving metrics:', error);
+            return false;
+        }
+    }
         
-        private async compareAndUpdateMetrics(latestUsage?: Metrics[], ScopeUsage?: Metrics[]): Promise<void> {
+    private async compareAndUpdateMetrics(latestUsage?: Metrics[], ScopeUsage?: Metrics[]): Promise<void> {
             try {
             if (!latestUsage) { 
                 console.log("No latest usage data provided. Will get it from API.");

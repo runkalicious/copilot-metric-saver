@@ -22,7 +22,7 @@ export class MySQLTenantStorage implements ITenantStorage {
                 database: storage_config.DB?.DATABASE,
                 port: storage_config.DB?.PORT,
             });
-            console.log('Database connection established successfully.');
+            console.log('Database connection established successfully in tenant module.');
             this.initialized = true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
@@ -54,7 +54,7 @@ export class MySQLTenantStorage implements ITenantStorage {
 
     private async ensureInitialized() {
         if (!this.initialized) {
-            console.log('Re-initializing connection...');
+            console.log('Re-initializing connection in tenant module...');
             await this.initConnection();
         }
     }

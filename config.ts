@@ -13,7 +13,7 @@ const {
   DB_PORT
 } = process.env;
 
-// 检查 STORAGE_TYPE 是否为 'mysql'，如果是，则检查数据库连接参数
+// to check whether STORAGE_TYPE is  'mysql'，it it is, need to check the database related parameters.
 if (STORAGE_TYPE === 'mysql') {
   if (!DB_HOST || !DB_USER || !DB_PASSWORD || !DB_DATABASE || !DB_PORT) {
     throw new Error('When STORAGE_TYPE is set to "mysql", DB_HOST, DB_USER, DB_PASSWORD, DB_DATABASE, and DB_PORT must be set.');

@@ -14,10 +14,10 @@ export class Tenant {
         this.isActive = isActive;
 
         // Validate tenant using GitHub API
-        this.validateTenant();
+       // this.validateTenant();
     }
 
-    private async validateTenant(): Promise<void> {
+    public async validateTenant(): Promise<void> {
         try {
             await getMetricsApi(this.scopeType, this.scopeName, this.token);
         } catch (error) {

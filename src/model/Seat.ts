@@ -7,6 +7,10 @@ export class Seat {
     last_activity_editor: string;
 
     constructor(data: any) {
+        if (!data.assignee) {
+            console.error("Assignee data is missing for item:", JSON.stringify(data, null, 2));
+            throw new Error("Assignee data is missing");
+        }
         this.login = data.assignee.login;
         this.id = data.assignee.id;
         this.team = data.assigning_team ? data.assigning_team.name : '';
@@ -20,8 +24,12 @@ export class TotalSeats {
     total_seats: number;
     seats: Seat[];
 
-    constructor(data: any) {
-        this.total_seats = data.total_seats;
-        this.seats = data.seats.map((seat: any) => new Seat(seat));
+    constructor(seats: Seat[]) {
+        if (!Array.isArray(seats)) {
+            throw new Error("Seats must be an array");
+        }
+        this.total_seats = seats.length;
+        this.seats = seats;
+        //console.log('TotalSeats data received:', JSON.stringify(seats, null, 2));
     }
 }

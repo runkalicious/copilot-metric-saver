@@ -1,6 +1,6 @@
 // src/server.ts
 import express from 'express';
-import { UsageServiceFactory } from './api/UsageServiceFactory';
+import { CopilotServiceFactory } from './api/CopilotServiceFactory'; //for both usage and seat service
 import cors from 'cors';
 import { Tenant } from './model/Tenant';
 import { TenantServiceFactory } from './api/TenantServiceFactory'; // Import TenantServiceFactory
@@ -23,15 +23,25 @@ const runJob = async () => {
         const tenantStorage: ITenantStorage = TenantServiceFactory.createTenantService();
         // Call readTenantData method to get all tenants
         const tenants: Tenant[] = await tenantStorage.readTenantData();
+        // filter out inactive tenants
+        const activeTenants = tenants.filter((tenant) => tenant.isActive);
 
         // Iterate over each tenant and perform saveUsageData operation
-        for (const tenant of tenants) {
+        for (const tenant of activeTenants) {
             try {
-                const usageService = await UsageServiceFactory.createUsageService(tenant);
+                const now = new Date();
+            
+                // get the usage service for the tenant, and save the usage data
+                const usageService = await CopilotServiceFactory.createUsageService(tenant);
                 await usageService.saveUsageData();
                 // Get current time and log it.
-                const now = new Date();
-                console.log(`Data saved successfully for tenant ${tenant.scopeName} at ${now}`);
+                console.log(`Metrics Data saved successfully for tenant ${tenant.scopeName} at ${now}`);
+
+                // get the seat service for the tenant, and save the seat data
+                const seatService = await CopilotServiceFactory.createSeatService(tenant);
+                await seatService.saveSeatData();
+                // Get current time and log it.
+                console.log(`Seat Data saved successfully for tenant ${tenant.scopeName} at ${now}`);
             } catch (error) {
                 const now = new Date();
                 console.error(`Error saving usage data for tenant ${tenant.scopeName} at ${now}:`, error);
@@ -52,7 +62,7 @@ setInterval(runJob, 12 * 60 * 60 * 1000);
 // Redirect default to /api/:scopeType/:scopeName/copilot/usage
 app.get('/', (req, res) => {
     //res.redirect('/api/:scopeType/:scopeName/copilot/usage');
-    res.redirect('/tenants');
+    res.redirect('/api/tenants');
 });
 
 // Call metrics service
@@ -66,8 +76,6 @@ app.get('/api/:scopeType/:scopeName/copilot/usage', async (req, res) => {
             return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
         }
 
-
-        
         // Create tenant object from parameters
         const tenant = new Tenant(scopeType as 'organization' | 'team' | 'enterprise', scopeName as string, token as string, true);
 
@@ -77,7 +85,7 @@ app.get('/api/:scopeType/:scopeName/copilot/usage', async (req, res) => {
         await tenantService.saveTenantData(tenant);
 
         // Initialize UsageService with the tenant
-        const usageService = await UsageServiceFactory.createUsageService(tenant);
+        const usageService = await CopilotServiceFactory.createUsageService(tenant);
 
         // Call the saveUsageData method
         await usageService.saveUsageData();
@@ -93,7 +101,7 @@ app.get('/api/:scopeType/:scopeName/copilot/usage', async (req, res) => {
 });
 
 // Endpoint to read and print all tenant data
-app.get('/tenants', async (req, res) => {
+app.get('/api/tenants', async (req, res) => {
     try {
         // Use TenantServiceFactory to create the appropriate ITenantStorage implementation
         const tenantStorage: ITenantStorage = TenantServiceFactory.createTenantService();
@@ -107,6 +115,41 @@ app.get('/tenants', async (req, res) => {
         res.status(500).send('Error reading active tenant data');
     }
 });
+
+
+// New endpoint to add a tenant
+app.post('/api/tenants', async (req, res) => {
+    try {
+        const { scopeType, scopeName, token, isActive } = req.body;
+
+        if (!scopeType || !scopeName || !token) {
+            return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+        }
+
+        if (typeof isActive !== 'boolean') {
+            return res.status(400).send('isActive should be a boolean');
+            // set the isActive to true if not provided
+            //isActive = true;
+        }
+
+        // Create tenant object from request body
+        const tenant = new Tenant(scopeType, scopeName, token, isActive);
+        
+        // Validate the tenant before saving
+        await tenant.validateTenant();
+
+        // Use TenantServiceFactory to create the appropriate ITenantStorage implementation
+        const tenantStorage: ITenantStorage = TenantServiceFactory.createTenantService();
+        // Save the tenant data
+        await tenantStorage.saveTenantData(tenant);
+
+        res.status(201).send('Tenant added successfully');
+    } catch (error) {
+        console.error('Error adding tenant:', error);
+        res.status(500).send('Error adding tenant');
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
