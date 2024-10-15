@@ -42,7 +42,7 @@ export class FileTenantStorage implements ITenantStorage {
                 console.log(`Tenant ${tenant.scopeName} added.`);
             }
 
-            console.log('tenants:', tenants);
+            //console.log('tenants:', tenants);
             // Write only the updated or new tenant back to the file
             // I think there is a bug here, because it just write all tenants back to the file, not only the updated or new tenant,plese check and fix it.
             fs.writeFileSync(this.tenantsFilePath, JSON.stringify({ tenants }, null, 2));
@@ -58,7 +58,7 @@ export class FileTenantStorage implements ITenantStorage {
      * Read all tenant data from the file.
      * @returns {Promise<Tenant[]>} An array of tenant data.
      */
-    async readTenantData(): Promise<Tenant[]> {
+    async getTenantData(): Promise<Tenant[]> {
         try {
             const data = fs.readFileSync(this.tenantsFilePath, 'utf-8');
             return JSON.parse(data).tenants;
@@ -75,7 +75,7 @@ export class FileTenantStorage implements ITenantStorage {
      */
     async queryTenantData(name: string): Promise<Tenant | undefined> {
         try {
-            const tenants = await this.readTenantData();
+            const tenants = await this.getTenantData();
             return tenants.find(tenant => tenant.scopeName === name);
         } catch (error) {
             console.error('Error querying tenant data from file:', error);
@@ -87,9 +87,9 @@ export class FileTenantStorage implements ITenantStorage {
      * Read active tenant scopes from the file.
      * @returns {Promise<{ scopeType: string, scopeName: string }[]>} An array of active tenant scopes.
      */
-     async readActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
+     async getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
         try {
-            const tenants = await this.readTenantData();
+            const tenants = await this.getTenantData();
             return tenants
                 .filter((tenant: Tenant) => tenant.isActive)
                 .map((tenant: Tenant) => ({ scopeType: tenant.scopeType, scopeName: tenant.scopeName }));

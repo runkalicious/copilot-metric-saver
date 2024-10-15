@@ -30,9 +30,13 @@ export class CopilotSeatStorageService {
         }
     }
 
-    public async readSeatData(): Promise<TotalSeats> {
+    public async getSeatData(page?: number, per_page?: number): Promise<TotalSeats> {
         try {
-            return await this.storage.readSeatData();
+            if (page && per_page) {
+                return await this.storage.getSeatData(page, per_page);
+            }
+            else
+            return await this.storage.getSeatData();
         } catch (error) {
             console.error('Error reading seat data:', error);
             return new TotalSeats([]); 

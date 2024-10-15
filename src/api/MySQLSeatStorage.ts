@@ -99,50 +99,97 @@ export class MySQLSeatStorage implements ISeatStorage {
         }
     }
 
-    public async readSeatData(): Promise<TotalSeats> {
+      public async getSeatData(page?: number, per_page?: number): Promise<TotalSeats> {
         await this.ensureInitialized();
         try {
             const query = `
-                SELECT login, team, created_at, last_activity_at, last_activity_editor 
-                FROM CopilotSeats 
-                WHERE type = ? AND scope_name = ?`;
+                SELECT 
+                    login, 
+                    team, 
+                    created_at, 
+                    last_activity_at, 
+                    last_activity_editor 
+                FROM 
+                    CopilotSeats 
+                WHERE 
+                    (refresh_time) IN (
+                        SELECT 
+                            MAX(refresh_time) 
+                        FROM 
+                            CopilotSeats 
+                        WHERE 
+                            type = ? AND scope_name = ?
+                    )
+                AND 
+                    type = ? AND scope_name = ?`    
+            const params: any[] = [this.type, this.scope_name, this.type, this.scope_name]; 
 
-            const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, [this.type, this.scope_name]);
+    
+            const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, params);
             return new TotalSeats(rows as Seat[]);
         } catch (error) {
             console.error('Error reading seat data from MySQL:', error);
             return new TotalSeats([]);
         }
     }
-
     public async querySeatData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<TotalSeats[]> {
         await this.ensureInitialized();
         try {
             let query = `
-                SELECT login, team, created_at, last_activity_at, last_activity_editor 
-                FROM CopilotSeats 
+                SELECT 
+                    login, 
+                    MAX(team) AS team, 
+                    MAX(created_at) AS created_at, 
+                    last_activity_at, 
+                    MAX(last_activity_editor) AS last_activity_editor 
+                FROM 
+                    CopilotSeats 
                 WHERE type = ? AND scope_name = ?`;
-
+    
             const params: any[] = [this.type, this.scope_name];
-
+    
+            // Validate and add since parameter
             if (since) {
-                query += ' AND created_at >= ?';
-                params.push(since);
+                if (this.isValidDate(since)) {
+                    query += ' AND last_activity_at >= ?';
+                    params.push(since);
+                } else {
+                    console.error('Invalid date format for "since":', since);
+                }
             }
-
+    
+            // Validate and add until parameter
             if (until) {
-                query += ' AND created_at <= ?';
-                params.push(until);
+                if (this.isValidDate(until)) {
+                    query += ' AND last_activity_at <= ?';
+                    params.push(until);
+                } else {
+                    console.error('Invalid date format for "until":', until);
+                }
             }
+    
+            // Add pagination parameters
+            query += `
+            GROUP BY 
+                login, last_activity_at, type, scope_name `
+            
+           //     LIMIT ? OFFSET ?`;
 
-            query += ' LIMIT ? OFFSET ?';
-            params.push(per_page, (page - 1) * per_page);
-
+           // params.push(per_page, (page - 1) * per_page);
+    
+            console.log('Query:', query);
+    
             const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, params);
             return [new TotalSeats(rows as Seat[])];
         } catch (error) {
             console.error('Error querying seat data from MySQL:', error);
             return [];
         }
+    }
+    
+    // Private method to validate date format
+    private isValidDate(dateString: string): boolean {
+        const date = new Date(dateString);
+        return !isNaN(date.getTime());
     }
 }

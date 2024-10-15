@@ -73,7 +73,7 @@ export class MySQLTenantStorage implements ITenantStorage {
         }
     }
 
-    async readTenantData(): Promise<Tenant[]> {
+    async getTenantData(): Promise<Tenant[]> {
         await this.ensureInitialized();
         try {
             const [rows] = await this.dbConnection!.execute('SELECT * FROM tenants');
@@ -96,7 +96,7 @@ export class MySQLTenantStorage implements ITenantStorage {
         }
     }
 
-    async readActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
+    async getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
         await this.ensureInitialized();
         try {
             const [rows] = await this.dbConnection!.execute('SELECT scopeType, scopeName FROM tenants WHERE isActive = true');

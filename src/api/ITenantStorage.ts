@@ -3,7 +3,7 @@ import { Tenant } from '../model/Tenant';
 
 export interface ITenantStorage {
     saveTenantData(tenant: Tenant): Promise<boolean>;
-    readTenantData(): Promise<Tenant[]>;
+    getTenantData(): Promise<Tenant[]>;
     queryTenantData(name: string): Promise<Tenant | undefined>;
-    readActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]>;
+    getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]>;
 }
