@@ -35,6 +35,11 @@ Start the server:
 ts-node src/server.ts
 ```
 
+The server will run on `http://localhost:3000`.
+And for the overroll API, plese visit `http://localhost:3000/api-docs`.
+
+![alt text](image.png)
+
 ### API Endpoints
 
 #### Fetch and Save Usage Data
@@ -70,7 +75,7 @@ GET /tenants
 curl "http://localhost:3000/tenants"
 ```
 
-The server will run on `http://localhost:3000`.
+
 
 ## Project Structure
 
