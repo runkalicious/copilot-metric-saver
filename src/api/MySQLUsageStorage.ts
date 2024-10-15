@@ -1,7 +1,8 @@
 import { createConnection, Connection } from 'mysql2/promise';
 import { IUsageStorage } from './IUsageStorage';
 import { Metrics, BreakdownData } from '../model/Metrics';
-import config from '../config';
+import { storage_config } from '../../config';
+import { Tenant } from '../model/Tenant';
 
 export class MySQLUsageStorage implements IUsageStorage {
     private dbConnection: Connection | null = null;
@@ -9,20 +10,20 @@ export class MySQLUsageStorage implements IUsageStorage {
     private type: string = '';
     private initialized: boolean = false;
 
-    constructor() {
+    constructor(tenant: Tenant) {
+        this.initializeScope(tenant);
         this.initConnection();
-        this.initializeScope();
         this.initializeDatabase();
     }
 
     private async initConnection() {
         try {
             this.dbConnection = await createConnection({
-                host: config.DB?.host || 'localhost',
-                user: config.DB?.user|| 'root',
-                password: config.DB?.password || 'password',
-                database: config.DB?.database || 'copilot_usage',
-                port: Number(config.DB?.port) || 3306
+                 host: storage_config.DB?.HOST,
+                user: storage_config.DB?.USER,
+                password: storage_config.DB?.PASSWORD,
+                database: storage_config.DB?.DATABASE,
+                port: storage_config.DB?.PORT,
             });
             console.log('Database connection established successfully.');
             this.initialized= true;
@@ -34,10 +35,10 @@ export class MySQLUsageStorage implements IUsageStorage {
     }
 
 
-    private async initializeScope() {
+    public async initializeScope(tenant: Tenant) {
         try {
-            this.scope_name = config.scope.name;
-            this.type = config.scope.type;
+            this.scope_name = tenant.scopeName;
+            this.type = tenant.scopeType;
             console.log('scope_name in initializeScope:', this.scope_name);
         } catch (error) {
             console.error('Error initializing scope:', error);

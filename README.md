@@ -1,65 +1,109 @@
-# copilot-metric-saver
-call github copilot usage and seat API, then save fetched data to file  or mysql for persistent save, then anlyze it.
+# GitHub Copilot Usage and Seat API
+# My Express App
 
-This project is an Express.js application that interacts with GitHub APIs to fetch and store metrics. It supports different storage types (file or MySQL) and can be configured to use mocked data for testing purposes.
+This project is designed to call the GitHub Copilot usage and seat API, save the fetched data to a file or MySQL for persistent storage, and then analyze it.
+
+## Features
+
+- Fetch GitHub Copilot usage and seat data.
+- Save data to a file or MySQL database.
+- Analyze the saved data.
+- Manage tenant information with support for organizations, teams, and enterprises.
+- Securely handle tenant tokens and only return active tenants.
 
 ## Installation
 
-1. **Clone the repository**:
+1. Clone the repository:
     ```sh
-    git clone https://github.com/DevOps-zhuang/copilot-metric-saver.git
-    cd opilot-metric-saver
+    git clone https://github.com/your-repo.git
+    cd your-repo
     ```
 
-2. **Install dependencies**:
+2. Install dependencies:
     ```sh
     npm install
     ```
 
-3. **Install TypeScript and ts-node globally** (if not already installed):
-    ```sh
-    npm install -g typescript ts-node
-    ```
+3. Configure the database and other settings in `.env`.
 
-## Configuration
+## Usage
 
-Create a `.env` file in the root directory of the project and add the following variables:
+### Running the Server
 
-```properties
-NODE_ENV=development
-# Determines if mocked data should be used instead of making API calls.
-VUE_APP_MOCKED_DATA=false
+Start the server:
+```sh
+ts-node src/server.ts
+```
 
-# Determines the scope of the API calls. 
-# Can be 'enterprise' or 'organization' to target API calls to an enterprise or an organization respectively.
-VUE_APP_SCOPE=organization
+The server will run on `http://localhost:3000`.
+And for the overroll API, plese visit `http://localhost:3000/api-docs`.
 
-# Determines the enterprise or organization name to target API calls.
-VUE_APP_GITHUB_ORG=OrgName
+![alt text](image.png)
 
-VUE_APP_GITHUB_ENT=EntName
+### API Endpoints
 
-# Determines the team name if exists to target API calls.
-VUE_APP_GITHUB_TEAM=
+#### Fetch and Save Usage Data
 
-# Determines the GitHub Personal Access Token to use for API calls.
-# Create with scopes copilot, manage_billing:copilot or manage_billing:enterprise, read:enterprise AND read:org
-VUE_APP_GITHUB_TOKEN=
+```http
+GET /api/:scopeType/:scopeName/copilot/usage
+```
 
-# Determines the storage type to use for the persistence layer. It should be either 'file' or 'mysql'
-VUE_APP_STORAGE_TYPE=file
+**Parameters:**
+- `scopeType`: The type of scope (organization, team, or enterprise).
+- `scopeName`: The name of the scope.
+- `token`: The authorization token (passed as a Bearer token in the Authorization header).
+- `since` (optional): The start date for fetching usage data.
+- `until` (optional): The end date for fetching usage data.
+- `page` (optional): The page number for pagination.
+- `per_page` (optional): The number of items per page for pagination.
 
-# Database connection parameters, only required if VUE_APP_STORAGE_TYPE is set to 'mysql'
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=password
-DB_DATABASE=copilot_usage
-DB_PORT=3306
+**Example:**
+```sh
+curl -H "Authorization: Bearer YOUR_TOKEN" "http://localhost:3000/api/organization/example-org/copilot/usage"
+```
+
+#### Get Active Tenants
+
+```http
+GET /tenants
+```
+
+**Returns:** A list of active tenants with their `scopeType` and `scopeName`.
+
+**Example:**
+```sh
+curl "http://localhost:3000/tenants"
+```
 
 
-## Running the Application
 
-Run the application:ts-node src/server.ts
+## Project Structure
 
-License
+```
+src/
+├── api/
+│   ├── GitHubApi.ts          # Contains functions to call GitHub APIs.
+│   ├── TenantServiceFactory.ts # Factory to create tenant service instances.
+│   ├── UsageServiceFactory.ts  # Factory to create usage service instances.
+│   ├── MySQLTenantStorage.ts   # Implementation of tenant storage using MySQL.
+│   └── FileTenantStorage.ts    # Implementation of tenant storage using the file system.
+├── model/
+│   ├── Tenant.ts             # Tenant model class.
+│   └── Metrics.ts            # Metrics model class.
+└── server.ts                 # Main server file.
+```
+
+## Tenant Model
+
+The `Tenant` class represents a tenant and includes the following properties:
+
+- `scopeType`: The type of scope (organization, team, or enterprise).
+- `scopeName`: The name of the scope.
+- `token`: The authorization token.
+- `isActive`: Indicates whether the tenant is active.
+
+The `Tenant` class also includes a method to validate the tenant using the GitHub API.
+
+## License
+
 This project is licensed under the MIT License. See the LICENSE file for details.
