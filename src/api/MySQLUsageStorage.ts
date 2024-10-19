@@ -25,7 +25,7 @@ export class MySQLUsageStorage implements IUsageStorage {
                 database: storage_config.DB?.DATABASE,
                 port: storage_config.DB?.PORT,
             });
-            console.log('Database connection established successfully.');
+            console.log('Database connection established successfully in Usage Module.');
             this.initialized= true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
@@ -91,7 +91,7 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     private async ensureInitialized() {
         if (!this.initialized) {
-            console.log('Re-initializing connection...');
+            console.log('Re-initializing connection in Usage Module...');
             await this.initConnection();
         }
     }
