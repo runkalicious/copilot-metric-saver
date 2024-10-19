@@ -7,10 +7,12 @@ import { storage_config } from '../../config';
 export class MySQLTenantStorage implements ITenantStorage {
     private dbConnection: Connection | null = null;
     private initialized: boolean = false;
+    private initPromise: Promise<void>;
 
     constructor() {
-        this.initConnection();
-        this.initializeDatabase();
+        this.initPromise = this.initConnection().then(() => {
+            return this.initializeDatabase();
+        });
     }
 
     private async initConnection() {
@@ -55,7 +57,7 @@ export class MySQLTenantStorage implements ITenantStorage {
     private async ensureInitialized() {
         if (!this.initialized) {
             console.log('Re-initializing connection in tenant module...');
-            await this.initConnection();
+            await this.initPromise;
         }
     }
 
@@ -106,6 +108,4 @@ export class MySQLTenantStorage implements ITenantStorage {
             return [];
         }
     }
-
-    
 }

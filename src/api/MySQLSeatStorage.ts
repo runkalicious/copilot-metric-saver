@@ -62,7 +62,7 @@ export class MySQLSeatStorage implements ISeatStorage {
 
     private async ensureInitialized() {
         if (!this.initialized) {
-            console.log('Re-initializing connection...');
+            console.log('Re-initializing connection in Seat modeule...');
             await this.initConnection();
         }
     }
