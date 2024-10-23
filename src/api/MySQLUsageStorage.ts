@@ -8,6 +8,7 @@ export class MySQLUsageStorage implements IUsageStorage {
     private dbConnection: Connection | null = null;
     private scope_name: string = '';
     private type: string = '';
+    private team?: string= '';
     private initialized: boolean = false;
 
     constructor(tenant: Tenant) {
@@ -19,7 +20,7 @@ export class MySQLUsageStorage implements IUsageStorage {
     private async initConnection() {
         try {
             this.dbConnection = await createConnection({
-                 host: storage_config.DB?.HOST,
+                host: storage_config.DB?.HOST,
                 user: storage_config.DB?.USER,
                 password: storage_config.DB?.PASSWORD,
                 database: storage_config.DB?.DATABASE,
@@ -39,9 +40,11 @@ export class MySQLUsageStorage implements IUsageStorage {
         try {
             this.scope_name = tenant.scopeName;
             this.type = tenant.scopeType;
-            console.log('scope_name in initializeScope:', this.scope_name);
+            this.team = tenant.team;
+            console.log('scope_name in Usage initializeScope:', this.scope_name);
+            console.log('team in Usage initializeScope:', this.team);
         } catch (error) {
-            console.error('Error initializing scope:', error);
+            console.error('Error initializing Usage scope:', error);
         }
     }
 
@@ -61,9 +64,10 @@ export class MySQLUsageStorage implements IUsageStorage {
                 total_chat_acceptances INT DEFAULT 0,
                 total_chat_turns INT DEFAULT 0,
                 total_active_chat_users INT DEFAULT 0,
-                type ENUM('organization', 'team', 'enterprise') NOT NULL,
+                type ENUM('organization','enterprise') NOT NULL,
                 scope_name VARCHAR(255) NOT NULL,
-                UNIQUE KEY (day, type, scope_name)
+                team VARCHAR(255) DEFAULT '',
+                UNIQUE KEY unique_day_type_scope_team(day, type, scope_name,team)
             );
         `;
 
@@ -71,8 +75,9 @@ export class MySQLUsageStorage implements IUsageStorage {
             CREATE TABLE IF NOT EXISTS BreakdownData (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 day DATE NOT NULL,
-                type ENUM('organization', 'team', 'enterprise') NOT NULL,
+                type ENUM('organization','enterprise') NOT NULL,
                 scope_name VARCHAR(255) NOT NULL,
+                team VARCHAR(255) DEFAULT '',
                 language VARCHAR(255) NOT NULL,
                 editor VARCHAR(255) NOT NULL,
                 suggestions_count INT NOT NULL,
@@ -80,13 +85,13 @@ export class MySQLUsageStorage implements IUsageStorage {
                 lines_suggested INT NOT NULL,
                 lines_accepted INT NOT NULL,
                 active_users INT NOT NULL,
-                UNIQUE KEY (day, type, scope_name, language, editor)
-            );
+                UNIQUE KEY unique_day_scope_team_lang_ide (day, type, scope_name(50), team(50), language(50), editor(50))
+                );
         `;
 
         await this.dbConnection!.execute(createMetricsTableQuery);
         await this.dbConnection!.execute(createBreakdownDataTableQuery);
-        console.log('Database tables initialized.');
+        console.log('Database Usage tables initialized.');
     }
 
     private async ensureInitialized() {
@@ -98,38 +103,59 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     public async saveUsageData(metrics: Metrics[]): Promise<boolean> {
         await this.ensureInitialized();
+        console.log('team in saveUsageData:', this.team);
         try {
             const metricsQuery = `
-                INSERT INTO Metrics (day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users, type, scope_name)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO Metrics (day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users, type, scope_name, team)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                AS new
                 ON DUPLICATE KEY UPDATE
-                    total_suggestions_count = VALUES(total_suggestions_count),
-                    total_acceptances_count = VALUES(total_acceptances_count),
-                    total_lines_suggested = VALUES(total_lines_suggested),
-                    total_lines_accepted = VALUES(total_lines_accepted),
-                    total_active_users = VALUES(total_active_users),
-                    total_chat_acceptances = VALUES(total_chat_acceptances),
-                    total_chat_turns = VALUES(total_chat_turns),
-                    total_active_chat_users = VALUES(total_active_chat_users)`;
+                    total_suggestions_count = new.total_suggestions_count,
+                    total_acceptances_count = new.total_acceptances_count,
+                    total_lines_suggested = new.total_lines_suggested,
+                    total_lines_accepted = new.total_lines_accepted,
+                    total_active_users = new.total_active_users,
+                    total_chat_acceptances = new.total_chat_acceptances,
+                    total_chat_turns = new.total_chat_turns,
+                    total_active_chat_users = new.total_active_chat_users,
+                    type = new.type,
+                    scope_name = new.scope_name,
+                    team = new.team;
+            `;
 
             const breakdownQuery = `
-                INSERT INTO BreakdownData (day, type, scope_name, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO BreakdownData (day, type, scope_name, team, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                AS new
                 ON DUPLICATE KEY UPDATE
-                    suggestions_count = VALUES(suggestions_count),
-                    acceptances_count = VALUES(acceptances_count),
-                    lines_suggested = VALUES(lines_suggested),
-                    lines_accepted = VALUES(lines_accepted),
-                    active_users = VALUES(active_users)`;
+                    suggestions_count = new.suggestions_count,
+                    acceptances_count = new.acceptances_count,
+                    lines_suggested = new.lines_suggested,
+                    lines_accepted = new.lines_accepted,
+                    active_users = new.active_users,
+                    type = new.type,
+                    scope_name = new.scope_name,
+                    team = new.team,
+                    language = new.language,
+                    editor = new.editor;
+            `;
 
             for (const metric of metrics) {
+                //print the metric data and its parameters
+               // console.log('metric:', metric);
+                // console.log('metric.day:', metric.day);
+                // console.log('team:', this.team);
+                // console.log('scope_name:', this.scope_name);
+                // console.log('type:', this.type);
+               // console.log ('metricsQuery:', metricsQuery);
+
                 await this.dbConnection!.execute(metricsQuery, [
-                    metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name
+                    metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name,this.team
                 ]);
 
                 for (const breakdown of metric.breakdown) {
                     await this.dbConnection!.execute(breakdownQuery, [
-                        metric.day, this.type, this.scope_name, breakdown.language, breakdown.editor, breakdown.suggestions_count, breakdown.acceptances_count, breakdown.lines_suggested, breakdown.lines_accepted, breakdown.active_users
+                        metric.day, this.type, this.scope_name,this.team, breakdown.language, breakdown.editor, breakdown.suggestions_count, breakdown.acceptances_count, breakdown.lines_suggested, breakdown.lines_accepted, breakdown.active_users
                     ]);
                 }
             }
@@ -142,18 +168,25 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     public async readUsageData(): Promise<Metrics[]> {
         await this.ensureInitialized();
+        console.log('team in readUsageData:', this.team);
         try {
+
+            // need to check whether the team is null or '', it is null or '' then we need to pass team='' in the query.
+            //or, the query should be  incluedes 'and team = ?' in the where clause.
+            if (this.team === null || this.team === '') {
+                this.team = '';
+            }
             const metricsQuery = `
                 SELECT day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users 
                 FROM Metrics 
-                WHERE type = ? AND scope_name = ?`;
+                WHERE type = ? AND scope_name = ? AND team = ?`;
             const breakdownQuery = `
                 SELECT day, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users 
                 FROM BreakdownData 
-                WHERE type = ? AND scope_name = ?`;
+                WHERE type = ? AND scope_name = ? AND team = ?`;
 
-            const [metricsRows] = await this.dbConnection!.execute(metricsQuery, [this.type, this.scope_name]);
-            const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [this.type, this.scope_name]);
+            const [metricsRows] = await this.dbConnection!.execute(metricsQuery, [this.type, this.scope_name,this.team]);
+            const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [this.type, this.scope_name,this.team]);
 
             const breakdownMap = new Map<string, BreakdownData[]>();
             for (const row of breakdownRows as any[]) {
@@ -176,13 +209,14 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     public async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<Metrics[]> {
         await this.ensureInitialized();
+        console.log('team in queryUsageData:', this.team);
         try {
             let query = `
                 SELECT DATE_FORMAT(day, '%Y-%m-%d') as day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users 
                 FROM Metrics 
-                WHERE type = ? AND scope_name = ?`;
+                WHERE type = ? AND scope_name = ? AND  team = ?`;
 
-            const params: any[] = [this.type, this.scope_name];
+            const params: any[] = [this.type, this.scope_name,this.team];
 
             if (since) {
                 query += ' AND day >= ?';
@@ -210,8 +244,8 @@ export class MySQLUsageStorage implements IUsageStorage {
                 const breakdownQuery = `
                     SELECT DATE_FORMAT(day, '%Y-%m-%d') as day, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users 
                     FROM BreakdownData 
-                    WHERE day = ? AND type = ? AND scope_name = ?`;
-                const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [metric.day, this.type, this.scope_name]);
+                    WHERE day = ? AND type = ? AND scope_name = ? AND team = ?`;
+                const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [metric.day, this.type, this.scope_name, this.team]);
                 metric.breakdown = (breakdownRows as any[]).map((row: any) => new BreakdownData(row));
             }
 

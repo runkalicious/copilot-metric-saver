@@ -8,16 +8,16 @@ export class CopilotUsageStorageService {
     private storage: IUsageStorage;
     private gitHubApi: GitHubApi;
 
-    constructor(storage: IUsageStorage, tenant: Tenant, team?: string) {
+    constructor(storage: IUsageStorage, tenant: Tenant) {
         this.storage = storage;
-        this.gitHubApi = new GitHubApi(tenant, team);
+        this.gitHubApi = new GitHubApi(tenant);
     }
 
     public async saveUsageData(): Promise<boolean> {
         try {
             const metrics = await this.gitHubApi.getMetricsApi();
-            if (!Array.isArray(metrics)) {
-                throw new Error('Result is not an array.');
+            if ((!Array.isArray(metrics))|| metrics.length === 0) {
+                throw new Error('Result from github API is empty, please check your token and scopeName');
             }
             return await this.storage.saveUsageData(metrics);
         } catch (error) {

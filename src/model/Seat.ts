@@ -1,22 +1,30 @@
 export class Seat {
     login: string;
     id: number;
-    team: string;
+    assigning_team: string;
     created_at: string;
     last_activity_at: string;
     last_activity_editor: string;
 
     constructor(data: any) {
-        if (!data.assignee) {
-            console.error("Assignee data is missing for item:", JSON.stringify(data, null, 2));
-            throw new Error("Assignee data is missing");
+        if (!data.assignee) {  // there is no assignee in the data. This is the case when the assignee is from the database. When it is from the database, it is a seat object
+           //console.error("Assignee data is missing for item:", JSON.stringify(data, null, 2));
+            //throw new Error("Assignee data is missing");
+            this.login = data.login;
+            this.id = data.id;
+            this.assigning_team = data.assigning_team;
+            this.created_at = data.created_at;
+            this.last_activity_at = data.last_activity_at;
+            this.last_activity_editor = data.last_activity_editor;
         }
-        this.login = data.assignee.login;
-        this.id = data.assignee.id;
-        this.team = data.assigning_team ? data.assigning_team.name : '';
-        this.created_at = data.created_at;
-        this.last_activity_at = data.last_activity_at;
-        this.last_activity_editor = data.last_activity_editor;
+        else { // the assignee is from the GitHub API. when it is there, it is an assignee object, and it does include many other fields
+            this.login = data.assignee.login;
+            this.id = data.assignee.id;
+            this.assigning_team = data.assigning_team ? data.assigning_team.name : '';
+            this.created_at = data.created_at;
+            this.last_activity_at = data.last_activity_at;
+            this.last_activity_editor = data.last_activity_editor;
+        }
     }
 }
 

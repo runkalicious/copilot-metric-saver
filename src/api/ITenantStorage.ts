@@ -6,4 +6,5 @@ export interface ITenantStorage {
     getTenantData(): Promise<Tenant[]>;
     queryTenantData(name: string): Promise<Tenant | undefined>;
     getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]>;
+    removeTenantData(tenant: Tenant): Promise<boolean>;
 }

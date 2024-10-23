@@ -1,6 +1,6 @@
 // src/CopilotSeatStorageService.ts
 import { ISeatStorage } from './ISeatStorage';
-import { TotalSeats } from '../model/Seat';
+import { Seat, TotalSeats } from '../model/Seat';
 import { GitHubApiCopilotSeat } from '../api/GitHubApi_copilot_seat';
 import { Tenant } from '../model/Tenant';
 //import file system module, to use it to write the result to a file
@@ -10,10 +10,12 @@ const fs = require('fs');
 export class CopilotSeatStorageService {
     private storage: ISeatStorage;
     private gitHubApi: GitHubApiCopilotSeat;
+    private tenant: Tenant;
 
     constructor(storage: ISeatStorage, tenant: Tenant) {
         this.storage = storage;
         this.gitHubApi = new GitHubApiCopilotSeat(tenant);
+        this.tenant = tenant;
     }
 
     public async saveSeatData(): Promise<boolean> {
@@ -32,14 +34,29 @@ export class CopilotSeatStorageService {
 
     public async getSeatData(page?: number, per_page?: number): Promise<TotalSeats> {
         try {
+            let seatData: TotalSeats;
+           // let filterSeatData: TotalSeats;
+            let seats: Seat[] = [];
             if (page && per_page) {
-                return await this.storage.getSeatData(page, per_page);
+                seatData = await this.storage.getSeatData(page, per_page);
+            } else {
+                seatData = await this.storage.getSeatData();
+                //console.log('seatData returned from storage:', seatData);
             }
-            else
-            return await this.storage.getSeatData();
+
+            // to check whether the tenant is exist and it is not '' or null, if it is exist, filter the seats by the assigned team
+            if (this.tenant.team !== '') {
+                // console.log('Filtering seats by team:', this.tenant.team);
+                // console.log('seatData:', seatData);
+                seats = seatData.seats.filter((seat: Seat) => seat.assigning_team === this.tenant.team);
+                return new TotalSeats(seats);
+            }
+            else {
+                return seatData;
+            }
         } catch (error) {
             console.error('Error reading seat data:', error);
-            return new TotalSeats([]); 
+            return new TotalSeats([]);
         }
     }
 

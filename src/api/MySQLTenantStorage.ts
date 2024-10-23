@@ -1,5 +1,5 @@
 // src/api/MySQLTenantStorage.ts
-import { createConnection, Connection } from 'mysql2/promise';
+import { createConnection, Connection, ResultSetHeader } from 'mysql2/promise';
 import { ITenantStorage } from './ITenantStorage';
 import { Tenant } from '../model/Tenant';
 import { storage_config } from '../../config';
@@ -39,10 +39,11 @@ export class MySQLTenantStorage implements ITenantStorage {
             CREATE TABLE IF NOT EXISTS tenants (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 scopeName VARCHAR(255) NOT NULL,
-                scopeType VARCHAR(255) NOT NULL,
-                token VARCHAR(255) NOT NULL,
+                scopeType VARCHAR(50) NOT NULL,
+                team VARCHAR(255) default '',
+                token VARCHAR(50) NOT NULL,
                 isActive BOOLEAN NOT NULL,
-                UNIQUE KEY unique_scope_type (scopeName, scopeType)
+                UNIQUE KEY unique_scope_type (scopeName, scopeType, team)
             );
         `;
 
@@ -65,8 +66,8 @@ export class MySQLTenantStorage implements ITenantStorage {
         await this.ensureInitialized();
         try {
             await this.dbConnection!.execute(
-                'INSERT INTO tenants (scopeName, scopeType, token, isActive) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), isActive = VALUES(isActive)',
-                [tenant.scopeName, tenant.scopeType, tenant.token, tenant.isActive]
+                'INSERT INTO tenants (scopeName, scopeType, team,token, isActive) VALUES (?, ?, ?,?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), isActive = VALUES(isActive)',
+                [tenant.scopeName, tenant.scopeType, tenant.team,tenant.token, tenant.isActive]
             );
             return true;
         } catch (error) {
@@ -78,14 +79,22 @@ export class MySQLTenantStorage implements ITenantStorage {
     async getTenantData(): Promise<Tenant[]> {
         await this.ensureInitialized();
         try {
-            const [rows] = await this.dbConnection!.execute('SELECT * FROM tenants');
-            return (rows as any[]).map(row => new Tenant(row.scopeType, row.scopeName, row.token, row.isActive));
+            const query = `
+                SELECT scopeType, scopeName, token, team, isActive
+                FROM tenants
+            `;
+            const [rows] = await this.dbConnection!.execute(query);
+            return (rows as any[]).map(row => new Tenant(row.scopeType, row.scopeName, row.token, row.team, row.isActive));
         } catch (error) {
             console.error('Error reading tenant data from MySQL:', error);
             return [];
         }
     }
 
+    // Query tenant data by scope name. it will return the tenant data if found, otherwise it will return undefined.
+    // and it is possible to have multiple tenants with the same scope name but different scope type. or different team.
+    // so it is better to be updated to return an array of tenants.
+    // or fetch the tenant data by scope name and scope type and team.
     async queryTenantData(name: string): Promise<Tenant | undefined> {
         await this.ensureInitialized();
         try {
@@ -101,11 +110,29 @@ export class MySQLTenantStorage implements ITenantStorage {
     async getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
         await this.ensureInitialized();
         try {
-            const [rows] = await this.dbConnection!.execute('SELECT scopeType, scopeName FROM tenants WHERE isActive = true');
+            const [rows] = await this.dbConnection!.execute('SELECT scopeType, scopeName,team FROM tenants WHERE isActive = true');
             return rows as { scopeType: string, scopeName: string }[];
         } catch (error) {
             console.error('Error reading active tenants from MySQL:', error);
             return [];
+        }
+    }
+
+    async removeTenantData(tenant: Tenant): Promise<boolean> {
+        await this.ensureInitialized();
+        try {
+            const query = `
+                DELETE FROM tenants
+                WHERE scopeName = ? AND scopeType = ? AND team = ?
+            `;
+            const [result] = await this.dbConnection!.execute(query, [tenant.scopeName, tenant.scopeType, tenant.team]) as [ResultSetHeader, any];
+            console.log(' the query is ',query);
+            console.log('Remove tenant data result:', result);
+            return result.affectedRows > 0;
+            //return true;
+        } catch (error) {
+            console.error('Error removing tenant data from MySQL:', error);
+            return false;
         }
     }
 }

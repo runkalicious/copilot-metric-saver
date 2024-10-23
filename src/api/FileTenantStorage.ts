@@ -31,7 +31,12 @@ export class FileTenantStorage implements ITenantStorage {
             const tenants = JSON.parse(data).tenants;
 
             // Check if the tenant already exists
-            const existingTenantIndex = tenants.findIndex((t: Tenant) => t.scopeName === tenant.scopeName);
+            //const existingTenantIndex = tenants.findIndex((t: Tenant) => t.scopeName.toLocaleLowerCase() === tenant.scopeName && t.team === tenant.team && t.scopeType === tenant.scopeType);
+            const existingTenantIndex = tenants.findIndex((t: Tenant) => 
+                t.scopeName.toLowerCase() === tenant.scopeName.toLowerCase() && 
+                (t.team?.toLowerCase() || '') === (tenant.team?.toLowerCase() || '') && 
+                t.scopeType.toLowerCase() === tenant.scopeType.toLowerCase()
+            );
             if (existingTenantIndex !== -1) {
                 // Update existing tenant
                 tenants[existingTenantIndex] = tenant;
@@ -87,15 +92,48 @@ export class FileTenantStorage implements ITenantStorage {
      * Read active tenant scopes from the file.
      * @returns {Promise<{ scopeType: string, scopeName: string }[]>} An array of active tenant scopes.
      */
-     async getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
+     async getActiveTenants(): Promise<{ scopeType: string, scopeName: string ,team: string}[]> {
         try {
             const tenants = await this.getTenantData();
             return tenants
                 .filter((tenant: Tenant) => tenant.isActive)
-                .map((tenant: Tenant) => ({ scopeType: tenant.scopeType, scopeName: tenant.scopeName }));
+                .map((tenant: Tenant) => ({ scopeType: tenant.scopeType, scopeName: tenant.scopeName , team: tenant.team}));
         } catch (error) {
             console.error('Error reading active tenant scopes from file:', error);
             return [];
+        }
+    }
+
+    /**
+     * Remove tenant data.
+     * @param tenant The tenant data to remove.
+     * @returns {Promise<boolean>} True if the operation was successful, false otherwise.
+     */
+    async removeTenantData(tenant: Tenant): Promise<boolean> {
+        try {
+            const data = fs.readFileSync(this.tenantsFilePath, 'utf-8');
+            const tenants = JSON.parse(data).tenants;
+
+            // Find the index of the tenant to remove
+           // const tenantIndex = tenants.findIndex((t: Tenant) => t.scopeName === tenant.scopeName && t.scopeType === tenant.scopeType && t.team === tenant.team);
+            const tenantIndex = tenants.findIndex((t: Tenant) => 
+                t.scopeName.toLowerCase() === tenant.scopeName.toLowerCase() && 
+                (t.team?.toLowerCase() || '') === (tenant.team?.toLowerCase() || '') && 
+                t.scopeType.toLowerCase() === tenant.scopeType.toLowerCase()
+            );
+            if (tenantIndex !== -1) {
+                // Remove the tenant. maybe it is better to update its 'isActive' property to false instead of removing it.
+                tenants.splice(tenantIndex, 1);
+                console.log(`Tenant ${tenant.scopeName} removed.`);
+            }
+
+            // Write the updated tenant list back to the file
+            fs.writeFileSync(this.tenantsFilePath, JSON.stringify({ tenants }, null, 2));
+
+            return true;
+        } catch (error) {
+            console.error('Error removing tenant data from file:', error);
+            return false;
         }
     }
 }

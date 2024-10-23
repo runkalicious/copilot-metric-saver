@@ -79,7 +79,7 @@ export class MySQLSeatStorage implements ISeatStorage {
     
         const values = seatData.seats.map(seat => [
             seat.login,
-            seat.team,
+            seat.assigning_team,
             seat.created_at,
             seat.last_activity_at,
             seat.last_activity_editor,
@@ -126,7 +126,18 @@ export class MySQLSeatStorage implements ISeatStorage {
 
     
             const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, params);
-            return new TotalSeats(rows as Seat[]);
+
+            // Manually map the query results to Seat class
+            const seats = rows.map(row => new Seat({
+                login: row.login,
+               // id: row.id, // Assuming there is an id field in the database
+                assigning_team: row.team,
+                created_at: row.created_at,
+                last_activity_at: row.last_activity_at,
+                last_activity_editor: row.last_activity_editor
+            }));
+
+            return new TotalSeats(seats);
         } catch (error) {
             console.error('Error reading seat data from MySQL:', error);
             return new TotalSeats([]);
