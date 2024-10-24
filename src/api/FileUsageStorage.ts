@@ -42,20 +42,25 @@ export class FileUsageStorage implements IUsageStorage {
     }
 
     private initializeFilePath(tenant: Tenant) {
-        // Initialize file path based on tenant information
+
         
         // if team is not provided, the file name is scopeType_scopeName_metrics.json
         // if team is provided, the file name is scopeType_scopeName_team_team_metrics.json
         //const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
         let ScopeFileName = '';
-        console.log('team in path:', tenant.team);
+        //console.log('team in path:', tenant.team);
 
         if (tenant.team) {
             ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_team_${tenant.team}_metrics.json`;
         } else {
             ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
         }
+        const resolvedPath = path.resolve(__dirname, this.dirName, ScopeFileName);
         this.ScopeFilePath = path.join(__dirname, this.dirName, ScopeFileName);
+        if (!resolvedPath.startsWith(path.resolve(__dirname, this.dirName))) {
+              throw new Error('Invalid file path');
+          }
+        this.ScopeFilePath = resolvedPath;
 
         try{
         

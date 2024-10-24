@@ -7,6 +7,7 @@ import { TenantServiceFactory } from './api/TenantServiceFactory'; // Import Ten
 import { ITenantStorage } from './api/ITenantStorage'; // Import ITenantStorage
 import swaggerJsDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import escapeHtml from 'escape-html';
 
 let usageService: any; // Declare usageService in a broader scope
 
@@ -690,7 +691,7 @@ app.post('/api/tenants', async (req, res) => {
         // Save the tenant data
         await tenantStorage.saveTenantData(tenant);
 
-        res.status(201).send(`Tenant ${tenant.scopeName} added successfully`);
+        res.status(201).send(`Tenant ${escapeHtml(tenant.scopeName)} added successfully`);
         
     } catch (error) {
         console.error('Error adding tenant:', error);
