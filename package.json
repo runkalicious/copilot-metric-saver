@@ -18,7 +18,8 @@
     "express": "^4.20.0",
     "mysql2": "^3.11.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "escape-html": "^1.0.3"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
