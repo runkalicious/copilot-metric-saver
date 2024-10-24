@@ -30,12 +30,16 @@ export class FileSeatStorage implements ISeatStorage {
     private initializeFilePath(tenant: Tenant) {
         const LatestFileName = `${tenant.scopeType}_${tenant.scopeName}_${this.latestFilePostfix}`;
         const SeatFileName = `${tenant.scopeType}_${tenant.scopeName}_${this.seatFilePostfix}`;
-        this.LatestFilePath = path.join(__dirname, this.dirName, LatestFileName);
-        this.SeatFilePath = path.join(__dirname, this.dirName, SeatFileName);
+        const rootDir = path.resolve(__dirname, this.dirName);
+        this.LatestFilePath = path.resolve(rootDir, LatestFileName);
+        this.SeatFilePath = path.resolve(rootDir, SeatFileName);
 
         try {
-            if (!fs.existsSync(path.join(__dirname, this.dirName))) {
-                fs.mkdirSync(path.join(__dirname, this.dirName));
+            if (!this.LatestFilePath.startsWith(rootDir) || !this.SeatFilePath.startsWith(rootDir)) {
+                throw new Error('File paths are outside the root directory');
+            }
+            if (!fs.existsSync(rootDir)) {
+                fs.mkdirSync(rootDir);
             }
             if (!fs.existsSync(this.LatestFilePath)) {
                 // Create empty file, no content
