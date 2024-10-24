@@ -43,7 +43,11 @@ export class FileUsageStorage implements IUsageStorage {
         // Initialize file path based on tenant information
      
         const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
-        this.ScopeFilePath = path.join(__dirname, this.dirName, ScopeFileName);
+        const resolvedPath = path.resolve(__dirname, this.dirName, ScopeFileName);
+        if (!resolvedPath.startsWith(path.resolve(__dirname, this.dirName))) {
+            throw new Error('Invalid file path');
+        }
+        this.ScopeFilePath = resolvedPath;
 
         try{
         
