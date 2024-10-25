@@ -1,5 +1,5 @@
 // src/server.ts
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { CopilotServiceFactory } from './api/CopilotServiceFactory'; //for both usage and seat service
 import cors from 'cors';
 import { Tenant } from './model/Tenant';
@@ -507,56 +507,59 @@ setInterval(runJob, 12 * 60 * 60 * 1000);
 app.get('/', (req, res) => {
     //res.redirect('/api/:scopeType/:scopeName/copilot/usage');
     res.redirect('/api/tenants');
-});
+}); 
 
-// Call metrics service for a tenant,it maybe include team level. and team maybe within organization or enterprise or enterprise 
-app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName/team/:team_slug/copilot/usage'], async (req, res) => {
+// Call metrics service for a tenant, it may include team level. and team may be within organization or enterprise or enterprise 
+app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName/team/:team_slug/copilot/usage'],
+    async (req: Request, res: Response): Promise<void> => {
     try {
-        let { scopeType, scopeName,team_slug } = req.params;
+        let { scopeType, scopeName, team_slug } = req.params;
         const { since, until, page = 1, per_page = 60 } = req.query;
         const token = req.headers['authorization']?.split(' ')[1]; // Extract token from Bearer token
-        //console.log('token:', token);
-/*         console.log('scopeType:', scopeType);
-        console.log('scopeName:', scopeName);
-        console.log('team_slug:', team_slug); */
 
         if (!scopeType || !scopeName || !token) {
-            return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+            res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+            return;
         }
 
-         // Convert scopeType to lowercase
-         scopeType = scopeType.toLowerCase();
+        // Convert scopeType to lowercase
+        scopeType = scopeType.toLowerCase();
 
-         if (scopeType === 'orgs') {
-             scopeType = 'organization';
-         } else if (scopeType === 'enterprises') {
-             scopeType = 'enterprise';
-         }
-        // if the scopeType not within the list, return 400
-        if (scopeType !== 'organization'  && scopeType !== 'enterprise') {
-            return res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+        if (scopeType === 'orgs') {
+            scopeType = 'organization';
+        } else if (scopeType === 'enterprises') {
+            scopeType = 'enterprise';
+        }
+
+        // If the scopeType not within the list, return 400
+        if (scopeType !== 'organization' && scopeType !== 'enterprise') {
+            res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+            return;
         }
 
         // Create tenant object from parameters
-        //team_slug maybe null, so we need to check it
-        if(team_slug === undefined){
+        // team_slug maybe null, so we need to check it
+        if (team_slug === undefined) {
             team_slug = '';
         }
-        //console.log('team_slug after updating is :', team_slug);
-        const tenant = new Tenant(scopeType as 'organization' |  'enterprise', scopeName as string, token as string,team_slug as string, true);
-        // Validate the tenant, it if returns fales, it will throw an error
+
+        const tenant = new Tenant(scopeType as 'organization' | 'enterprise', scopeName as string, token as string, team_slug as string, true);
+
         // Validate the tenant before continuing
         const isValidTenant = await tenant.validateTenant();
         if (!isValidTenant) {
-            return res.status(400).send('Invalid tenant data');
+            res.status(400).send('Invalid tenant data');
+            return;
         }
 
         // Create a tenant service to save the tenant data
         const tenantService = TenantServiceFactory.createTenantService();
+
         // Save the tenant data
         const isTenantSaved = await tenantService.saveTenantData(tenant);
         if (!isTenantSaved) {
-            return res.status(400).send('the tenant data is not right, plese doouble check the token');
+            res.status(400).send('The tenant data is not right, please double check the token');
+            return;
         }
 
         // Initialize UsageService with the tenant
@@ -565,8 +568,10 @@ app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName
         // Call the saveUsageData method
         const isUsageDataSaved = await usageService.saveUsageData();
         if (!isUsageDataSaved) {
-            return res.status(404).send('Failed to fetch usage data');
+            res.status(404).send('Failed to fetch usage data');
+            return;
         }
+
         // Query usage data
         const data = await usageService.queryUsageData(since as string, until as string, parseInt(page as string), parseInt(per_page as string));
 
@@ -574,12 +579,16 @@ app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName
         res.json(data);
     } catch (error) {
         res.status(500).send('Error fetching metrics from storage');
+        return;
     }
 });
 
+
+
 // get seat for a tenant by visting /copilot/billing/seats, it maybe include team level, and team maybe within organization or enterprise or enterprise
 // added team level, and team maybe within organization or enterprise or enterprise
-app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:scopeName/team/:team_slug/copilot/billing/seats'], async (req, res) => {
+app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:scopeName/team/:team_slug/copilot/billing/seats'],
+    async (req, res) : Promise<void> => {
     try {
         let { scopeType, scopeName ,team_slug} = req.params;
        // const { since, until, page = 1, per_page = 60 } = req.query;
@@ -588,7 +597,8 @@ app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:s
         const token = req.headers['authorization']?.split(' ')[1]; // Extract token from Bearer token
 
         if (!scopeType || !scopeName || !token) {
-            return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           return;
         }
         // if the scopeType is 'orgs', update the scopeType to 'organization'
         // Convert scopeType to lowercase
@@ -602,7 +612,8 @@ app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:s
         // if the scopeType not within the list, return 400
 
         if (scopeType !== 'organization' && scopeType !== 'team' && scopeType !== 'enterprise') {
-            return res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+            res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+            return;
         }
 
         if (team_slug) {
@@ -653,26 +664,30 @@ app.get('/api/tenants', async (req, res) => {
         // Print active tenant data
         console.log('Active Tenants:', activeTenants);
         res.json(activeTenants);
+        return;
     } catch (error) {
         console.error('Error reading active tenant data:', error);
         res.status(500).send('Error reading active tenant data');
+        return
     }
 });
 
 
 // New endpoint to add a tenant
-app.post('/api/tenants', async (req, res) => {
+app.post('/api/tenants', async (req, res): Promise<void> => {
     try {
         const { scopeType, scopeName, token, team,isActive } = req.body;
         let team_slug = team;
 
 
         if (!scopeType || !scopeName || !token) {
-            return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           return;
         }
 
         if (typeof isActive !== 'boolean') {
-            return res.status(400).send('isActive should be a boolean');
+            res.status(400).send('isActive should be a boolean');
+            return;
             // set the isActive to true if not provided
             //isActive = true;
         }
@@ -702,13 +717,14 @@ app.post('/api/tenants', async (req, res) => {
 // add a new route to delete the tenant, it should be a post method
 // and the body should include the scopeType and scopeName and token, and optional team
 // so that we can make the permission check
-app.post('/api/tenants/delete', async (req, res) => {
+app.post('/api/tenants/delete',async (req: Request, res: Response): Promise<void> => {
     try {
         const { scopeType, scopeName, token,team } = req.body;
         let team_slug = team;
 
         if (!scopeType || !scopeName || !token) {
-            return res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+           return;
         }
 
         // if team is not provided, set it to empty string
