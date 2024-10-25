@@ -124,9 +124,9 @@ export class FileSeatStorage implements ISeatStorage {
 
     public async getSeatData(page?: number, per_page?: number): Promise<TotalSeats> {
         try {
-            const data = fs.readFileSync(this.SeatFilePath, 'utf-8');
+            const data = fs.readFileSync(this.LatestFilePath, 'utf-8');
             const seatInfo = JSON.parse(data);
-            const seats = seatInfo ? seatInfo.map((seat: any) => new Seat(seat)) : [];
+            const seats = seatInfo.seats ? seatInfo.seats.map((seat: any) => new Seat(seat)) : [];
             return new TotalSeats(seats);
         } catch (error) {
             console.error('Error reading seat data from file:', error);

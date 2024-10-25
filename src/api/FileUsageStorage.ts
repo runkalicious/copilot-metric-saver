@@ -14,6 +14,7 @@ export class FileUsageStorage implements IUsageStorage {
     private scopeName: string = '';
     private scopeType: string = '';
     private token: string = '';
+    private team?: string;
 
     private dirName: string = '../../data';
 
@@ -37,16 +38,28 @@ export class FileUsageStorage implements IUsageStorage {
         this.scopeName = tenant.scopeName;
         this.scopeType = tenant.scopeType;
         this.token = tenant.token;
+        this.team=tenant.team;
     }
 
     private initializeFilePath(tenant: Tenant) {
-        // Initialize file path based on tenant information
-     
-        const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
-        const resolvedPath = path.resolve(__dirname, this.dirName, ScopeFileName);
-        if (!resolvedPath.startsWith(path.resolve(__dirname, this.dirName))) {
-            throw new Error('Invalid file path');
+
+        
+        // if team is not provided, the file name is scopeType_scopeName_metrics.json
+        // if team is provided, the file name is scopeType_scopeName_team_team_metrics.json
+        //const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
+        let ScopeFileName = '';
+        //console.log('team in path:', tenant.team);
+
+        if (tenant.team) {
+            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_team_${tenant.team}_metrics.json`;
+        } else {
+            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
         }
+        const resolvedPath = path.resolve(__dirname, this.dirName, ScopeFileName);
+        this.ScopeFilePath = path.join(__dirname, this.dirName, ScopeFileName);
+        if (!resolvedPath.startsWith(path.resolve(__dirname, this.dirName))) {
+              throw new Error('Invalid file path');
+          }
         this.ScopeFilePath = resolvedPath;
 
         try{
@@ -77,7 +90,16 @@ export class FileUsageStorage implements IUsageStorage {
     }
 
     private generateTimerFileFullName(): string {
-        return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+        // if the team is not provided, the file name is scopeType_scopeName_metrics.json
+        // if the team is provided, the file name is scopeType_scopeName_team_team_metrics.json
+        if (this.team) {
+            return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_team_${this.team}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+        }
+        else
+        {
+            return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+        }
+        //return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
     }
 
     public async readUsageData(): Promise<Metrics[]> {
@@ -118,9 +140,9 @@ export class FileUsageStorage implements IUsageStorage {
 
     public async saveUsageData(metrics?: Metrics[]): Promise<boolean> {
         try {
-            if (!metrics) {
-                metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token);
-            }
+           /*  if (!metrics) {
+                metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token,this.team);
+            } */
             if (!Array.isArray(metrics)) {
                 throw new Error('Result is not an array.');
             }
@@ -141,7 +163,7 @@ export class FileUsageStorage implements IUsageStorage {
             try {
             if (!latestUsage) { 
                 console.log("No latest usage data provided. Will get it from API.");
-                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token);
+                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token, this.team);
             }
             if (!ScopeUsage) {
             // console.log("No existing data provided. Will get it from file.");
@@ -196,6 +218,7 @@ private sendNotification(updatedDays: string[], addedDays: string[]): void {
 
 async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<Metrics[]> {
     try {
+        //console.log('Querying usage data from file...， file name is ',this.ScopeFilePath);
         const data = fs.readFileSync(this.ScopeFilePath, 'utf-8');
         let metrics: Metrics[] = JSON.parse(data);
 

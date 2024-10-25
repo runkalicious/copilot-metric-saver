@@ -24,25 +24,9 @@ export class GitHubApiCopilotSeat {
         let page = 1;
         let seatsData: Seat[] = [];
 
-        let response = await axios.get(this.getApiUrl(), {
-            headers: {
-                Accept: "application/vnd.github+json",
-                Authorization: `Bearer ${this.tenant.token}`,
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-            params: {
-                per_page: perPage,
-                page: page
-            }
-        });
-
-        seatsData = seatsData.concat(response.data.seats.map((item: any) => new Seat(item)));
-
-        const totalSeats = response.data.total_seats;
-        const totalPages = Math.ceil(totalSeats / perPage);
-
-        for (page = 2; page <= totalPages; page++) {
-            response = await axios.get(this.getApiUrl(), {
+        try
+        {
+            let response = await axios.get(this.getApiUrl(), {
                 headers: {
                     Accept: "application/vnd.github+json",
                     Authorization: `Bearer ${this.tenant.token}`,
@@ -53,14 +37,38 @@ export class GitHubApiCopilotSeat {
                     page: page
                 }
             });
-           // console.log('Seats data received for page', page, ':', JSON.stringify(response.data.seats, null, 2));
 
             seatsData = seatsData.concat(response.data.seats.map((item: any) => new Seat(item)));
-            //const validSeats = response.data.seats.filter((item: any) => item.assignee);
-            //seatsData = seatsData.concat(validSeats.map((item: any) => new Seat(item)));
-        }
 
-        //return new TotalSeats({ total_seats: seatsData.length, seats: seatsData });
-        return new TotalSeats(seatsData);
+            const totalSeats = response.data.total_seats;
+            const totalPages = Math.ceil(totalSeats / perPage);
+
+            for (page = 2; page <= totalPages; page++) {
+                response = await axios.get(this.getApiUrl(), {
+                    headers: {
+                        Accept: "application/vnd.github+json",
+                        Authorization: `Bearer ${this.tenant.token}`,
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                    params: {
+                        per_page: perPage,
+                        page: page
+                    }
+                });
+            // console.log('Seats data received for page', page, ':', JSON.stringify(response.data.seats, null, 2));
+
+                seatsData = seatsData.concat(response.data.seats.map((item: any) => new Seat(item)));
+                //const validSeats = response.data.seats.filter((item: any) => item.assignee);
+                //seatsData = seatsData.concat(validSeats.map((item: any) => new Seat(item)));
+            }
+
+            //return new TotalSeats({ total_seats: seatsData.length, seats: seatsData });
+            return new TotalSeats(seatsData);
+        }
+    catch (error) {
+        console.error(`Error fetching copilot seat data from GitHub API for ${this.tenant.scopeName}:`, error);
+        return new TotalSeats([]);
     }
+}
+
 }

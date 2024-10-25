@@ -39,6 +39,7 @@ data/
 
 # dotenv environment variables file
 .env
+.env*
 
 # MacOS
 .DS_Store

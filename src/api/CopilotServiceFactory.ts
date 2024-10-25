@@ -9,21 +9,12 @@ import { Tenant } from '../model/Tenant';
 import { TenantServiceFactory } from './TenantServiceFactory';
 
 export class CopilotServiceFactory {
-  static async createUsageService(tenant?: Tenant, scopeName?: string) {
+  static async createUsageService(tenant: Tenant) {
     // if the tenant is not provided, get it from the storage
     if (!tenant) {
-      console.log('Tenant is missing, will querying it by scopeName');
-      if (!scopeName) {
-        throw new Error('Either scopeName or tenant is required');
-      }
-      const tenantService = TenantServiceFactory.createTenantService();
-      tenant = await tenantService.queryTenantData(scopeName);
-
-      if (!tenant) {
-        throw new Error('Tenant not found');
-      }
+      throw new Error('Tenant is needed');
     }
-
+  
     let usageStorage;
     switch (storage_config.storage_type) {
       case 'mysql':
@@ -42,15 +33,8 @@ export class CopilotServiceFactory {
     // if the tenant is not provided, get it from the storage
     if (!tenant) {
       console.log('Tenant is missing, will querying it by scopeName');
-      if (!scopeName) {
-        throw new Error('Either scopeName or tenant is required');
-      }
-      const tenantService = TenantServiceFactory.createTenantService();
-      tenant = await tenantService.queryTenantData(scopeName);
-
-      if (!tenant) {
-        throw new Error('Tenant not found');
-      }
+      throw new Error('Tenant not found');
+    
     }
 
     let seatStorage;

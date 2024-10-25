@@ -6,7 +6,8 @@ import { Metrics } from '../model/Metrics'; // Assuming Metrics is a class
 export const getMetricsApi = async (
   scopeType: string,
   scopeName: string,
-  token: string
+  token: string,
+  team: string = ''
 ): Promise<Metrics[]> => {
   // Check the input parameters
   if (!["organization", "enterprise"].includes(scopeType)) {
