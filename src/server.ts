@@ -1,13 +1,14 @@
 // src/server.ts
 import express, { Request, Response } from 'express';
-import { CopilotServiceFactory } from './api/CopilotServiceFactory'; //for both usage and seat service
 import cors from 'cors';
-import { Tenant } from './model/Tenant';
-import { TenantServiceFactory } from './api/TenantServiceFactory'; // Import TenantServiceFactory
-import { ITenantStorage } from './api/ITenantStorage'; // Import ITenantStorage
 import swaggerJsDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import escapeHtml from 'escape-html';
+import { Tenant } from './model/Tenant';
+import { TenantServiceFactory } from './api/TenantServiceFactory'; // Import TenantServiceFactory
+import { CopilotServiceFactory } from './api/CopilotServiceFactory'; //for both usage and seat service
+import { ITenantStorage } from './api/ITenantStorage'; // Import ITenantStorage
+import { validateScope, ScopeValidationResult } from './api/validateInput'; 
 
 let usageService: any; // Declare usageService in a broader scope
 
@@ -522,26 +523,16 @@ app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName
             return;
         }
 
-        // Convert scopeType to lowercase
-        scopeType = scopeType.toLowerCase();
-
-        if (scopeType === 'orgs') {
-            scopeType = 'organization';
-        } else if (scopeType === 'enterprises') {
-            scopeType = 'enterprise';
-        }
-
-        // If the scopeType not within the list, return 400
-        if (scopeType !== 'organization' && scopeType !== 'enterprise') {
-            res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+        // Validate inputs
+        const validationResult: ScopeValidationResult = validateScope(scopeType, scopeName, token, team_slug);
+        if (!validationResult.isValid) {
+            res.status(400).send(validationResult.errorMessage);
             return;
         }
 
-        // Create tenant object from parameters
-        // team_slug maybe null, so we need to check it
-        if (team_slug === undefined) {
-            team_slug = '';
-        }
+        // Update scopeType and team_slug with normalized values
+        scopeType = validationResult.normalizedScopeType;
+        team_slug = validationResult.normalizedTeamSlug;
 
         const tenant = new Tenant(scopeType as 'organization' | 'enterprise', scopeName as string, token as string, team_slug as string, true);
 
@@ -600,28 +591,16 @@ app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:s
            res.status(400).send('Missing required parameters: scopeType, scopeName, token');
            return;
         }
-        // if the scopeType is 'orgs', update the scopeType to 'organization'
-        // Convert scopeType to lowercase
-        scopeType = scopeType.toLowerCase();
-
-        if (scopeType === 'orgs') {
-            scopeType = 'organization';
-        } else if (scopeType === 'enterprises') {
-            scopeType = 'enterprise';
-        }
-        // if the scopeType not within the list, return 400
-
-        if (scopeType !== 'organization' && scopeType !== 'team' && scopeType !== 'enterprise') {
-            res.status(400).send('Invalid scopeType. It should be organization, team, or enterprise');
+        // Validate inputs
+        const validationResult: ScopeValidationResult = validateScope(scopeType, scopeName, token, team_slug);
+        if (!validationResult.isValid) {
+            res.status(400).send(validationResult.errorMessage);
             return;
         }
 
-        if (team_slug) {
-            console.log(`Team slug provided: ${team_slug}`);
-        }
-        else {
-            team_slug = '';
-        }
+        // Update scopeType and team_slug with normalized values
+        scopeType = validationResult.normalizedScopeType;
+        team_slug = validationResult.normalizedTeamSlug;
         // Create tenant object from parameters
         const tenant = new Tenant(scopeType as 'organization' | 'enterprise', scopeName as string, token as string, team_slug,true);
 
@@ -691,8 +670,11 @@ app.post('/api/tenants', async (req, res): Promise<void> => {
             // set the isActive to true if not provided
             //isActive = true;
         }
-        if (team_slug === undefined) {
-            team_slug = '';
+        // Validate inputs
+        const validationResult: ScopeValidationResult = validateScope(scopeType, scopeName, token, team_slug);
+        if (!validationResult.isValid) {
+            res.status(400).send(validationResult.errorMessage);
+            return;
         }
 
         // Create tenant object from request body
@@ -727,10 +709,13 @@ app.post('/api/tenants/delete',async (req: Request, res: Response): Promise<void
            return;
         }
 
-        // if team is not provided, set it to empty string
-        if(team === undefined){
-            team_slug = '';
+        // Validate inputs
+        const validationResult: ScopeValidationResult = validateScope(scopeType, scopeName, token, team_slug);
+        if (!validationResult.isValid) {
+            res.status(400).send(validationResult.errorMessage);
+            return;
         }
+
         // Create tenant object from request body
         const tenant = new Tenant(scopeType, scopeName, token,team, true);
         
