@@ -12,8 +12,8 @@ export class MySQLUsageStorage implements IUsageStorage {
     private initialized: boolean = false;
 
     constructor(tenant: Tenant) {
-        this.initializeScope(tenant);
         this.initConnection();
+        this.initializeScope(tenant);
         this.initializeDatabase();
     }
 
@@ -41,8 +41,6 @@ export class MySQLUsageStorage implements IUsageStorage {
             this.scope_name = tenant.scopeName;
             this.type = tenant.scopeType;
             this.team = tenant.team;
-            console.log('scope_name in Usage initializeScope:', this.scope_name);
-            console.log('team in Usage initializeScope:', this.team);
         } catch (error) {
             console.error('Error initializing Usage scope:', error);
         }
@@ -101,9 +99,13 @@ export class MySQLUsageStorage implements IUsageStorage {
         }
     }
 
-    public async saveUsageData(metrics: Metrics[]): Promise<boolean> {
+    public async saveUsageData(metrics: Metrics[],team_slug?:string): Promise<boolean> {
         await this.ensureInitialized();
-        console.log('team in saveUsageData:', this.team);
+        if (!team_slug) {
+            team_slug = this.team;
+        }
+
+        console.log('team in saveUsageData:', team_slug);
         try {
             const metricsQuery = `
                 INSERT INTO Metrics (day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users, type, scope_name, team)
@@ -150,12 +152,12 @@ export class MySQLUsageStorage implements IUsageStorage {
                // console.log ('metricsQuery:', metricsQuery);
 
                 await this.dbConnection!.execute(metricsQuery, [
-                    metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name,this.team
+                    metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name,team_slug
                 ]);
 
                 for (const breakdown of metric.breakdown) {
                     await this.dbConnection!.execute(breakdownQuery, [
-                        metric.day, this.type, this.scope_name,this.team, breakdown.language, breakdown.editor, breakdown.suggestions_count, breakdown.acceptances_count, breakdown.lines_suggested, breakdown.lines_accepted, breakdown.active_users
+                        metric.day, this.type, this.scope_name,team_slug, breakdown.language, breakdown.editor, breakdown.suggestions_count, breakdown.acceptances_count, breakdown.lines_suggested, breakdown.lines_accepted, breakdown.active_users
                     ]);
                 }
             }

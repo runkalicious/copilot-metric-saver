@@ -19,7 +19,7 @@ export class FileUsageStorage implements IUsageStorage {
     private dirName: string = '../../data';
 
     // full path of the file named by ScopeName_metrics.json and the directory is ../data
-    private ScopeFilePath: string = ''
+    //private ScopeFilePath: string = ''
 
     // private ScopeName: string = config.scope.name;
     // private dirName: string = '../../data';
@@ -28,7 +28,7 @@ export class FileUsageStorage implements IUsageStorage {
 
     constructor(tenant: Tenant) {
         this.initializeScope(tenant);
-        this.initializeFilePath(tenant);
+        this.initializeFileFolder(tenant);
     }
     
 
@@ -41,43 +41,54 @@ export class FileUsageStorage implements IUsageStorage {
         this.team=tenant.team;
     }
 
-    private initializeFilePath(tenant: Tenant) {
+    private initializeFileFolder(tenant: Tenant) {
 
         
-        // if team is not provided, the file name is scopeType_scopeName_metrics.json
-        // if team is provided, the file name is scopeType_scopeName_team_team_metrics.json
-        //const ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
-        let ScopeFileName = '';
-        //console.log('team in path:', tenant.team);
+        
+        
+        // update the this.dirName to be the tenant's scopeType_scopeName folder. so all the files are in the same folder
+        this.dirName = `../../data/${tenant.scopeType}_${tenant.scopeName}`;
+        console.log('dirName now is :', this.dirName);
 
-        if (tenant.team) {
-            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_team_${tenant.team}_metrics.json`;
+        // 
+        /* if (tenant.team) {
+            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_team_${tenant.team}_usage.json`;
         } else {
-            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_metrics.json`;
+            ScopeFileName = `${tenant.scopeType}_${tenant.scopeName}_usage.json`;
         }
         const resolvedPath = path.resolve(__dirname, this.dirName, ScopeFileName);
         this.ScopeFilePath = path.join(__dirname, this.dirName, ScopeFileName);
         if (!resolvedPath.startsWith(path.resolve(__dirname, this.dirName))) {
               throw new Error('Invalid file path');
           }
-        this.ScopeFilePath = resolvedPath;
+        this.ScopeFilePath = resolvedPath; */
 
         try{
         
-            // console.log('ScopeFilePath:', this.ScopeFilePath);
-             // to check if the ../data folder exists, if not, create it
              if (!fs.existsSync(path.join(__dirname, this.dirName))) {
                  fs.mkdirSync(path.join(__dirname, this.dirName));
              }
              // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
-             if (!fs.existsSync(this.ScopeFilePath)) {
-                 fs.writeFileSync(this.ScopeFilePath, '[]');
-             }
+            //  if (!fs.existsSync(this.ScopeFilePath)) {
+            //      fs.writeFileSync(this.ScopeFilePath, '[]');
+            //  }
          }
          catch (error) {
              console.error('Error in FileUsageStorage constructor:', error);
          }
         
+    }
+
+    private getFilePath(teamSlug?: string): string {
+        if (!teamSlug) {
+            teamSlug = this.team;
+          }
+        if (teamSlug!=='') {
+          return path.join(__dirname, this.dirName, `${teamSlug}_usage.json`);
+        } else {
+          return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_usage.json`);
+        }
+
     }
 
     private getCurrentTimeFormatted(): string {
@@ -89,22 +100,33 @@ export class FileUsageStorage implements IUsageStorage {
         return Math.floor(Math.random() * 90 + 10).toString(); // Random number between 10 and 99
     }
 
-    private generateTimerFileFullName(): string {
-        // if the team is not provided, the file name is scopeType_scopeName_metrics.json
-        // if the team is provided, the file name is scopeType_scopeName_team_team_metrics.json
-        if (this.team) {
-            return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_team_${this.team}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+    private generateTimerFileFullName(teamSlug?: string): string {
+    
+        // if team is not provided, by default, will use the team information from the tenant
+        if (!teamSlug) {
+            teamSlug = this.team;
+          }
+   
+        if (teamSlug && teamSlug.trim()!=='') {
+            return path.join(__dirname, this.dirName, `team_${teamSlug}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_usage.json`);
         }
         else
         {
-            return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
+            return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_usage.json`);
         }
         //return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
     }
 
-    public async readUsageData(): Promise<Metrics[]> {
+    public async readUsageData( teamSlug?: string): Promise<Metrics[]> {
         try {
-            const data = fs.readFileSync(this.ScopeFilePath, 'utf-8');
+            // if teamslug is not provided, will use the team information from the tenant
+            if (!teamSlug) {
+                teamSlug = this.team;
+            }
+            const filePath = this.getFilePath(teamSlug);
+            console.log(`filePath in readUsage Data is , ${filePath}`);
+
+            const data = fs.readFileSync(filePath, 'utf-8');
             return JSON.parse(data);
         } catch (error) {
             console.error('Error reading usage data from file:', error);
@@ -138,8 +160,27 @@ export class FileUsageStorage implements IUsageStorage {
         }
       } */
 
-    public async saveUsageData(metrics?: Metrics[]): Promise<boolean> {
-        try {
+    // it save the fetched data to two files, one is the latest data, the other is to existing data
+    // the latest data is saved to a file named by timer_filePath
+    // the existing data is saved to a file named by getScopeFileName
+    // both files are in the ../data/{scopeType}_{scopeName}/ folder
+    // both files should consider the team information
+    //if the team is not provided, by default, will use the team information from the tenant
+    public async saveUsageData(metrics: Metrics[], teamSlug?: string): Promise<boolean> {
+        // if teamslug is provide, use it directly. if not, will use the team information from the tenant
+        if (!teamSlug) {
+            teamSlug = this.team;
+            console.log('teamSlug is undefined, so will use the seat from the tenant, it  is :', teamSlug);
+        } 
+        const filePath = this.getFilePath(teamSlug);
+        console.log(`filePath is , ${filePath}`);
+
+         // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
+         if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, '[]');
+        }
+         
+         try {
            /*  if (!metrics) {
                 metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token,this.team);
             } */
@@ -148,10 +189,12 @@ export class FileUsageStorage implements IUsageStorage {
             }
     
             const dataToWrite = JSON.stringify(metrics, null, 2);
-            const fileFullName = this.generateTimerFileFullName();
-            fs.writeFileSync(fileFullName, dataToWrite);
-            console.log('Metrics saved successfully to file:', fileFullName);
-            await this.compareAndUpdateMetrics(metrics);
+            const timerfileFullName = this.generateTimerFileFullName(teamSlug);
+            console.log('timerfileFullName is :', timerfileFullName);
+            fs.writeFileSync(timerfileFullName, dataToWrite);
+
+            console.log('Usage saved successfully to file:', timerfileFullName);
+            await this.compareAndUpdateMetrics(metrics,undefined, teamSlug);
             return true;
         } catch (error) {
             console.error('Error saving metrics:', error);
@@ -159,15 +202,21 @@ export class FileUsageStorage implements IUsageStorage {
         }
     }
         
-    private async compareAndUpdateMetrics(latestUsage?: Metrics[], ScopeUsage?: Metrics[]): Promise<void> {
+    private async compareAndUpdateMetrics(latestUsage?: Metrics[], ScopeUsage?: Metrics[], teamSlug?: string): Promise<void> {
             try {
+            // if teamSlug is provided, will use it. if not, will use the team information from the tenant
+            if (!teamSlug) {
+                teamSlug = this.team;
+            }
+            console.log('teamSlug in compare and save methoid is :', teamSlug);
+            console.log('teamSlug is :', teamSlug);
             if (!latestUsage) { 
                 console.log("No latest usage data provided. Will get it from API.");
-                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token, this.team);
+                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token, teamSlug);
             }
             if (!ScopeUsage) {
             // console.log("No existing data provided. Will get it from file.");
-                ScopeUsage = await this.readUsageData();
+                ScopeUsage = await this.readUsageData(teamSlug);
             }
 
             // Validate data
@@ -178,6 +227,8 @@ export class FileUsageStorage implements IUsageStorage {
             // Initialize lists to track days of updated and added metrics
             const updatedDays: string[] = [];
             const addedDays: string[] = [];
+            // console.log('latestUsage:', latestUsage);
+            //console.log('ScopeUsage:', ScopeUsage);
 
             if (latestUsage.length > 0) {
                 latestUsage.forEach(latestMetric => {
@@ -196,7 +247,8 @@ export class FileUsageStorage implements IUsageStorage {
 
                 // Save to existing ScopeUsage file only when there are some changes
                 if (updatedDays.length > 0 || addedDays.length > 0) {
-                    fs.writeFileSync(this.ScopeFilePath, JSON.stringify(ScopeUsage, null, 2));
+                    const filePath = this.getFilePath(teamSlug);
+                    fs.writeFileSync(filePath, JSON.stringify(ScopeUsage, null, 2));
                 // console.log(`Days updated: ${updatedDays.join(', ')}, Days added: ${addedDays.join(', ')}`);
 
                     // Send notification
@@ -219,7 +271,11 @@ private sendNotification(updatedDays: string[], addedDays: string[]): void {
 async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<Metrics[]> {
     try {
         //console.log('Querying usage data from file...， file name is ',this.ScopeFilePath);
-        const data = fs.readFileSync(this.ScopeFilePath, 'utf-8');
+
+        const filePath = this.getFilePath(this.team);
+        console.log(`filePath is , ${filePath}`);
+
+        const data = fs.readFileSync(filePath, 'utf-8');
         let metrics: Metrics[] = JSON.parse(data);
 
         if (since) {

@@ -9,6 +9,7 @@ import { TenantServiceFactory } from './api/TenantServiceFactory'; // Import Ten
 import { CopilotServiceFactory } from './api/CopilotServiceFactory'; //for both usage and seat service
 import { ITenantStorage } from './api/ITenantStorage'; // Import ITenantStorage
 import { validateScope, ScopeValidationResult } from './api/validateInput'; 
+import { childTeamEnabled,tenantAutoSave } from '../config'; 
 
 let usageService: any; // Declare usageService in a broader scope
 
@@ -546,20 +547,30 @@ app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName
         // Create a tenant service to save the tenant data
         const tenantService = TenantServiceFactory.createTenantService();
 
-        // Save the tenant data
-        const isTenantSaved = await tenantService.saveTenantData(tenant);
-        if (!isTenantSaved) {
-            res.status(400).send('The tenant data is not right, please double check the token');
-            return;
+        // to check if the auto save is enabled, if it is, then save the tenant data. 
+        if (tenantAutoSave) {
+            // Save the tenant data
+            const isTenantSaved = await tenantService.saveTenantData(tenant);
+            if (!isTenantSaved) {
+                res.status(400).send('The tenant data is not right, please double check the token');
+                return;
+            }
         }
+       
 
         // Initialize UsageService with the tenant
         const usageService = await CopilotServiceFactory.createUsageService(tenant);
 
         // Call the saveUsageData method
-        const isUsageDataSaved = await usageService.saveUsageData();
+        //const isUsageDataSaved = await usageService.saveUsageData();
+        // to check if the child_team_enabled is true, if it is, then save the child team data. or just save the tenant data
+      
+        let isUsageDataSaved: boolean;
+        isUsageDataSaved = await usageService.saveUsageData();
+       
+
         if (!isUsageDataSaved) {
-            res.status(404).send('Failed to fetch usage data');
+            res.status(500).send('Failed to save usage data');
             return;
         }
 
@@ -610,10 +621,15 @@ app.get(['/api/:scopeType/:scopeName/copilot/billing/seats', '/api/:scopeType/:s
         // Creat a tenantservice to save the tenant data
         const tenantService = TenantServiceFactory.createTenantService();
 
-        // save the tenant data
-        // TBD: should we save the tenant data here? it is better to save it when the tenant is created. and tell the user the tenant will be saved. or it will be secure issue?
-        // TBD: at least, we need a swith to control the save tenant data, so the user can choose to save the tenant data or not.
-        await tenantService.saveTenantData(tenant);
+        // to check if the auto save is enabled, if it is, then save the tenant data. 
+        if (tenantAutoSave) {
+            // Save the tenant data
+            const isTenantSaved = await tenantService.saveTenantData(tenant);
+            if (!isTenantSaved) {
+                res.status(400).send('The tenant data is not right, please double check the token');
+                return;
+            }
+        }
 
         // Initialize UsageService with the tenant
         const seatService = await CopilotServiceFactory.createSeatService(tenant);
@@ -727,7 +743,7 @@ app.post('/api/tenants/delete',async (req: Request, res: Response): Promise<void
         // Save the tenant data
         await tenantStorage.removeTenantData(tenant);
 
-        res.status(201).send(`Tenant ${tenant.scopeName} removed successfully`);
+        res.status(201).send(`The team ${team} of Tenant ${tenant.scopeName} was removed successfully`);
         
     } catch (error) {
         console.error('Error removing tenant:', error);

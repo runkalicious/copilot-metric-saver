@@ -30,7 +30,7 @@ export class GitHubApi {
   }
 
   async getMetricsApi(): Promise<Metrics[]> {
-    console.log(`get metrics api called for ${this.tenant.scopeName} at `, new Date());
+    console.log(`get metrics api called for team ${this.tenant.team} of ${this.tenant.scopeName} at `, new Date());
     try {
       const response = await axios.get(
         `${this.getApiUrl()}/copilot/usage`,
@@ -54,7 +54,7 @@ export class GitHubApi {
     }
   }
 
-  async getTeams(): Promise<string[]> {
+  async getTeams(): Promise<{ name: string; id: number; slug: string; description: string }[]> {
     const response = await axios.get(`${this.getApiUrl()}/teams`, {
       headers: {
         Accept: 'application/vnd.github+json',
@@ -63,15 +63,23 @@ export class GitHubApi {
       },
     });
 
-    return response.data;
+    //return response.data;
+    // update to return only the team values we need
+    return response.data.map((team: any) => ({
+      name: team.name,
+      id: team.id,
+      slug: team.slug,
+      description: team.description,
+    }));
+
   }
 
-  async getTeamMetricsApi(): Promise<Metrics[]> {
+  async getTeamMetricsApi(teamSlug: string): Promise<Metrics[]> {
    // console.log("config.github.team: " + this.team);
 
-    if (this.team && this.team.trim() !== '') {
+    if (teamSlug && teamSlug.trim() !== '') {
       const response = await axios.get(
-        `${this.getApiUrl()}/team/${this.team}/copilot/usage`,
+        `${this.getApiUrl()}/team/${teamSlug}/copilot/usage`,
         {
           headers: {
             Accept: "application/vnd.github+json",
