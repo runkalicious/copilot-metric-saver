@@ -1,6 +1,6 @@
 import { CopilotUsageStorageService } from './CopilotUsageStorageService';
 import { FileUsageStorage } from './FileUsageStorage';
-import { Metrics } from '../model/Metrics';
+import { Metrics } from '../model/Copilot_Usage';
 import { MySQLUsageStorage } from './MySQLUsageStorage';
 
 const testCopilotUsageStorageService = async () => {

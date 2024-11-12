@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import path from 'path';
-import { Metrics } from '../model/Metrics';
-import { getMetricsApi } from './/GitHubApi';
+import { CopilotUsage } from '../model/Copilot_Usage';
+import { GitHubApiCopilotUsage } from './GitHubApi_copilot_usage';
 import { IUsageStorage } from './IUsageStorage';
 
 import { Tenant } from '../model/Tenant';
 import { dir } from 'console';
+import e from 'express';
 
 export class FileUsageStorage implements IUsageStorage {
     
@@ -15,6 +16,7 @@ export class FileUsageStorage implements IUsageStorage {
     private scopeType: string = '';
     private token: string = '';
     private team?: string;
+    private githubApi: GitHubApiCopilotUsage;
 
     private dirName: string = '../../data';
 
@@ -29,6 +31,7 @@ export class FileUsageStorage implements IUsageStorage {
     constructor(tenant: Tenant) {
         this.initializeScope(tenant);
         this.initializeFileFolder(tenant);
+        this.githubApi = new GitHubApiCopilotUsage(tenant);
     }
     
 
@@ -39,13 +42,11 @@ export class FileUsageStorage implements IUsageStorage {
         this.scopeType = tenant.scopeType;
         this.token = tenant.token;
         this.team=tenant.team;
+        
     }
 
     private initializeFileFolder(tenant: Tenant) {
 
-        
-        
-        
         // update the this.dirName to be the tenant's scopeType_scopeName folder. so all the files are in the same folder
         this.dirName = `../../data/${tenant.scopeType}_${tenant.scopeName}`;
         console.log('dirName now is :', this.dirName);
@@ -117,7 +118,7 @@ export class FileUsageStorage implements IUsageStorage {
         //return path.join(__dirname, this.dirName, `${this.scopeType}_${this.scopeName}_${this.getCurrentTimeFormatted()}_${this.getRandomTwoDigits()}_metrics.json`);
     }
 
-    public async readUsageData( teamSlug?: string): Promise<Metrics[]> {
+    public async readUsageData( teamSlug?: string): Promise<CopilotUsage[]> {
         try {
             // if teamslug is not provided, will use the team information from the tenant
             if (!teamSlug) {
@@ -137,7 +138,7 @@ export class FileUsageStorage implements IUsageStorage {
     // This function is to save the fetched data to a file named by timer_filePath
     public async saveUsageData(): Promise<boolean> {
         try {
-          const metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token);
+          const metrics = await getUsageApi(this.scopeType, this.scopeName, this.token);
           //console.log('Fetched metrics:', metrics);
     
           if (!Array.isArray(metrics)) {
@@ -166,7 +167,7 @@ export class FileUsageStorage implements IUsageStorage {
     // both files are in the ../data/{scopeType}_{scopeName}/ folder
     // both files should consider the team information
     //if the team is not provided, by default, will use the team information from the tenant
-    public async saveUsageData(metrics: Metrics[], teamSlug?: string): Promise<boolean> {
+    public async saveUsageData(metrics: CopilotUsage[], teamSlug?: string): Promise<boolean> {
         // if teamslug is provide, use it directly. if not, will use the team information from the tenant
         if (!teamSlug) {
             teamSlug = this.team;
@@ -182,7 +183,7 @@ export class FileUsageStorage implements IUsageStorage {
          
          try {
            /*  if (!metrics) {
-                metrics = await getMetricsApi(this.scopeType, this.scopeName, this.token,this.team);
+                metrics = await getUsageApi(this.scopeType, this.scopeName, this.token,this.team);
             } */
             if (!Array.isArray(metrics)) {
                 throw new Error('Result is not an array.');
@@ -202,17 +203,30 @@ export class FileUsageStorage implements IUsageStorage {
         }
     }
         
-    private async compareAndUpdateMetrics(latestUsage?: Metrics[], ScopeUsage?: Metrics[], teamSlug?: string): Promise<void> {
+    private async compareAndUpdateMetrics(latestUsage?: CopilotUsage[], ScopeUsage?: CopilotUsage[], teamSlug?: string): Promise<void> {
             try {
             // if teamSlug is provided, will use it. if not, will use the team information from the tenant
             if (!teamSlug) {
                 teamSlug = this.team;
             }
+            else
+            {
+                teamSlug = teamSlug.trim();
+            }
             console.log('teamSlug in compare and save methoid is :', teamSlug);
             console.log('teamSlug is :', teamSlug);
             if (!latestUsage) { 
                 console.log("No latest usage data provided. Will get it from API.");
-                latestUsage = await getMetricsApi(this.scopeType, this.scopeName, this.token, teamSlug);
+                if (teamSlug!=='')
+                {
+                    console.log('teamSlug is :', teamSlug);
+                    latestUsage = await this.githubApi.getTeamUsageAPI(teamSlug || '');
+                }
+                else
+                {
+                    console.log('teamSlug is :', teamSlug);
+                    latestUsage = await this.githubApi.getUsageApi();
+                }
             }
             if (!ScopeUsage) {
             // console.log("No existing data provided. Will get it from file.");
@@ -268,7 +282,7 @@ private sendNotification(updatedDays: string[], addedDays: string[]): void {
     console.log(`Notification sent for updated days: ${updatedDays.join(', ')}, added days: ${addedDays.join(', ')}`);
 }
 
-async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<Metrics[]> {
+async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<CopilotUsage[]> {
     try {
         //console.log('Querying usage data from file...， file name is ',this.ScopeFilePath);
 
@@ -276,7 +290,7 @@ async queryUsageData(since?: string, until?: string, page: number = 1, per_page:
         console.log(`filePath is , ${filePath}`);
 
         const data = fs.readFileSync(filePath, 'utf-8');
-        let metrics: Metrics[] = JSON.parse(data);
+        let metrics: CopilotUsage[] = JSON.parse(data);
 
         if (since) {
             metrics = metrics.filter(metric => new Date(metric.day) >= new Date(since));

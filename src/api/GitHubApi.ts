@@ -1,14 +1,14 @@
 import organizationMockedResponse from '../assets/organization_response_sample.json';
 import enterpriseMockedResponse from '../assets/enterprise_response_sample.json';
 import axios from 'axios';
-import { Metrics } from '../model/Metrics'; // Assuming Metrics is a class
+import { CopilotUsage } from '../model/Copilot_Usage'; // Assuming Usage is a class
 
-export const getMetricsApi = async (
+export const getUsageApi = async (
   scopeType: string,
   scopeName: string,
   token: string,
   team: string = ''
-): Promise<Metrics[]> => {
+): Promise<CopilotUsage[]> => {
   // Check the input parameters
   if (!["organization", "enterprise"].includes(scopeType)) {
     throw new Error("Invalid scope type");
@@ -36,12 +36,12 @@ export const getMetricsApi = async (
       },
     }
   );
-  //console.log('get metrics api for ${scopename} called in githubapi.ts at ', new Date());
+  //console.log('get Usage api for ${scopename} called in githubapi.ts at ', new Date());
   //for the console log, it neeeds to include the scopeName and the current date and time
-  console.log(`get metrics api for ${scopeName} called in githubapi.ts at ${new Date()}`);
+  console.log(`get Usage api for ${scopeName} called in githubapi.ts at ${new Date()}`);
 
 
-  // Map the response data to Metrics instances
-  const metricsData = response.data.map((item: any) => new Metrics(item));
-  return metricsData;
+  // Map the response data to Usage instances
+  const UsageData = response.data.map((item: any) => new CopilotUsage(item));
+  return UsageData;
 };

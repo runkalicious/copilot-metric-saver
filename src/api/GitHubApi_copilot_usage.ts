@@ -1,8 +1,8 @@
 import axios from 'axios';
-import { Metrics } from '../model/Metrics';
+import { CopilotUsage } from '../model/Copilot_Usage';
 import { Tenant } from '../model/Tenant';
 
-export class GitHubApi {
+export class GitHubApiCopilotUsage {
   private tenant: Tenant;
   private team?: string;
 
@@ -29,7 +29,7 @@ export class GitHubApi {
 
   }
 
-  async getMetricsApi(): Promise<Metrics[]> {
+  async getUsageApi(): Promise<CopilotUsage[]> {
     console.log(`get metrics api called for team ${this.tenant.team} of ${this.tenant.scopeName} at `, new Date());
     try {
       const response = await axios.get(
@@ -46,9 +46,9 @@ export class GitHubApi {
       if (response.status !== 200) {
         throw new Error(`Failed to get metrics from GitHub API for ${this.tenant.scopeName}`);
       }
-      return response.data.map((item: any) => new Metrics(item));
+      return response.data.map((item: any) => new CopilotUsage(item));
     } catch (error) {
-      console.error(`Error fetching metrics from GitHub API for ${this.tenant.scopeName}:`);
+      console.error(`Error fetching usage from GitHub API for ${this.tenant.scopeName}:`);
      // throw error;
       return [];
     }
@@ -74,7 +74,7 @@ export class GitHubApi {
 
   }
 
-  async getTeamMetricsApi(teamSlug: string): Promise<Metrics[]> {
+  async getTeamUsageAPI(teamSlug: string): Promise<CopilotUsage[]> {
    // console.log("config.github.team: " + this.team);
 
     if (teamSlug && teamSlug.trim() !== '') {
@@ -88,7 +88,7 @@ export class GitHubApi {
           },
         }
       );
-      return response.data.map((item: any) => new Metrics(item));
+      return response.data.map((item: any) => new CopilotUsage(item));
     }
 
     return [];

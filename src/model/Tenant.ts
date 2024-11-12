@@ -1,5 +1,5 @@
 // model/Tenant.ts
-import { getMetricsApi } from '../api/GitHubApi'; 
+import { getUsageApi } from '../api/GitHubApi'; 
 
 export class Tenant {
     public scopeType: 'organization' | 'enterprise';
@@ -21,7 +21,7 @@ export class Tenant {
 
     public async validateTenant(): Promise<boolean> {
         try {
-            await getMetricsApi(this.scopeType, this.scopeName, this.token);
+            await getUsageApi(this.scopeType, this.scopeName, this.token);
             return true;
         } catch (error) {
             throw new Error('Invalid tenant information: scopeType, scopeName, or token is incorrect');
