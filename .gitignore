@@ -8,7 +8,13 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-data/
+
+# Ignore everything in the data directory
+data/*
+
+# Except tenants.json
+!data/tenants.json
+
 
 # Editor directories and files
 .vscode/
