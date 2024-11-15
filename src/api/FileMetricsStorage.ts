@@ -19,6 +19,7 @@ export class FileMetricsStorage implements IMetricsStorage {
 
 
     private dirName: string = '../../data';
+    private readonly ROOT_DIR: string = path.resolve(__dirname, '../../data');
 
     constructor(tenant: Tenant) {
         this.copilotMetricsApi = new GitHubMetricsApi(tenant);
@@ -38,24 +39,24 @@ export class FileMetricsStorage implements IMetricsStorage {
 
     private initializeFileFolder(tenant: Tenant) {
         // update the this.dirName to be the tenant's scopeType_scopeName folder. so all the files are in the same folder
-        this.dirName = `../../data/${tenant.scopeType}_${tenant.scopeName}`;
+        this.dirName = path.resolve(this.ROOT_DIR, `${tenant.scopeType}_${tenant.scopeName}`);
         console.log('dirName now is :', this.dirName);
 
+        try {
+            if (!this.dirName.startsWith(this.ROOT_DIR)) {
+                throw new Error('Invalid directory path');
+            }
 
-        try{
-        
-             if (!fs.existsSync(path.join(__dirname, this.dirName))) {
-                 fs.mkdirSync(path.join(__dirname, this.dirName));
-             }
-             // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
+            if (!fs.existsSync(this.dirName)) {
+                fs.mkdirSync(this.dirName);
+            }
+            // Create a file named by ScopeName_metrics.json within ../data folder if it does not exist
             //  if (!fs.existsSync(this.ScopeFilePath)) {
             //      fs.writeFileSync(this.ScopeFilePath, '[]');
             //  }
-         }
-         catch (error) {
-             console.error('Error in FileMetricsStorage constructor:', error);
-         }
-        
+        } catch (error) {
+            console.error('Error in FileMetricsStorage constructor:', error);
+        }
     }
 
     private getFilePath(teamSlug?: string): string {
