@@ -5,10 +5,25 @@ Since GitHubCopilot usage and seat API (see https://docs.github.com/en/rest/copi
 
  This App works as backend, it will call GitHubAPI periodlly(each 12 hours by default), then  save the fetched data to a file or MySQL for persistent storage, and expose some data by RestAPI, just as similar with GitHubCopilot API itself, the path is same, just update the endpoint by replacing https://api.github.com/ with http://YourServer:3000/api/ 
 
+ ## New Features
+
+
+### Support for GitHub Copilot Metrics （2024/11/15）
+add docker support.
+
+### Support for GitHub Copilot Metrics （2024/11/12）
+
+We have recently added support for GitHub Copilot Metrics. Here are some key features:
+
+- **Metrics Data Persistence**: Support for persisting Copilot Metrics data to a database, ensuring reliable storage and management of data.
+- **Multi-Tenant Support**: Support for multi-tenant architecture, allowing different organizations, teams, or enterprises to independently manage and access their Copilot Metrics data.
+- **API Endpoint**: Added the `/api/:scopeType/:scopeName/copilot/metrics` endpoint to retrieve Copilot Metrics data for a specific tenant.
+- **Swagger Documentation**: Enhanced Swagger documentation with descriptions for the `/api/:scopeType/:scopeName/copilot/metrics` endpoint, making it easier for developers to view and test the API.
+
 ## Features
 
-- Fetch GitHubCopilot usage and seat data.
-- Save data to a file or MySQL database.
+- Fetch GitHub Copilot usage/metrics and seat data.
+- Save data to files or MySQL database.
 - Analyze the saved data and expose them through RestAPI ( http://YourServer:3000/api/organization/[organizationName]/copilot/usage or  http://YourServer:3000/api/enterprise/[EnterpriseName]/copilot/ ))
 - Manage tenant information with support for organizations, teams, and enterprises.
 - Securely handle tenant tokens and only return active tenants.
@@ -30,8 +45,8 @@ setInterval(runJob, 12 * 60 * 60 * 1000);
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/your-repo.git
-    cd your-repo
+    git clone https://github.com/DevOps-zhuang/copilot-metric-saver.git
+    cd copilot-metric-saver
     ```
 
 2. Install dependencies:
@@ -42,10 +57,11 @@ setInterval(runJob, 12 * 60 * 60 * 1000);
     ```
 
 3. Configure the database and other settings in `.env`.
+if you prefer to save the output as file format, no needed to update the database setting.
 
 ## Usage
 
-### Running the Server
+### Running the Server on machine
 
 Start the server:
 ```sh
@@ -55,6 +71,11 @@ ts-node src/server.ts
 The server will run on `http://localhost:3000`.
 And for the overroll API, plese visit `http://localhost:3000/api-docs`.
 ![alt text](image-swagger.png)
+
+### Running the Server in Docker
+
+docker build -t copilot-metrics-saver .
+docker run -p 3000:3000 --env-file ./.env copilot-metrics-saver
 
 ### API Endpoints
 

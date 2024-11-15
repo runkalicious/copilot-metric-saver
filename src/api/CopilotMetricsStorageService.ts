@@ -4,6 +4,9 @@ import { CopilotMetrics } from '../model/Copilot_Metrics';
 import { GitHubMetricsApi } from './GitHubApi_copilot_metrics';
 import { Tenant } from '../model/Tenant';
 import { childTeamEnabled } from '../../config';
+// the below is for further use, when needed to convert metrics to usage
+//import { MetricsToUsageConverter } from './MetricsToUsageConverter';
+
 
 export class CopilotMetricsStorageService {
     private storage: IMetricsStorage;
