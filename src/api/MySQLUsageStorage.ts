@@ -1,6 +1,6 @@
 import { createConnection, Connection } from 'mysql2/promise';
 import { IUsageStorage } from './IUsageStorage';
-import { Metrics, BreakdownData } from '../model/Metrics';
+import { CopilotUsage, CopilotUsageBreakdown } from '../model/Copilot_Usage';
 import { storage_config } from '../../config';
 import { Tenant } from '../model/Tenant';
 
@@ -50,8 +50,8 @@ export class MySQLUsageStorage implements IUsageStorage {
 
         await this.ensureInitialized();
         
-        const createMetricsTableQuery = `
-            CREATE TABLE IF NOT EXISTS Metrics (
+        const createCopilotUsageTableQuery = `
+            CREATE TABLE IF NOT EXISTS CopilotUsage (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 day DATE NOT NULL,
                 total_suggestions_count INT NOT NULL,
@@ -69,8 +69,8 @@ export class MySQLUsageStorage implements IUsageStorage {
             );
         `;
 
-        const createBreakdownDataTableQuery = `
-            CREATE TABLE IF NOT EXISTS BreakdownData (
+        const createCopilotUsageBreakdownTableQuery = `
+            CREATE TABLE IF NOT EXISTS CopilotUsageBreakdown (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 day DATE NOT NULL,
                 type ENUM('organization','enterprise') NOT NULL,
@@ -87,8 +87,8 @@ export class MySQLUsageStorage implements IUsageStorage {
                 );
         `;
 
-        await this.dbConnection!.execute(createMetricsTableQuery);
-        await this.dbConnection!.execute(createBreakdownDataTableQuery);
+        await this.dbConnection!.execute(createCopilotUsageTableQuery);
+        await this.dbConnection!.execute(createCopilotUsageBreakdownTableQuery);
         console.log('Database Usage tables initialized.');
     }
 
@@ -99,7 +99,7 @@ export class MySQLUsageStorage implements IUsageStorage {
         }
     }
 
-    public async saveUsageData(metrics: Metrics[],team_slug?:string): Promise<boolean> {
+    public async saveUsageData(CopilotUsage: CopilotUsage[],team_slug?:string): Promise<boolean> {
         await this.ensureInitialized();
         if (!team_slug) {
             team_slug = this.team;
@@ -107,8 +107,8 @@ export class MySQLUsageStorage implements IUsageStorage {
 
         console.log('team in saveUsageData:', team_slug);
         try {
-            const metricsQuery = `
-                INSERT INTO Metrics (day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users, type, scope_name, team)
+            const CopilotUsageQuery = `
+                INSERT INTO CopilotUsage (day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users, type, scope_name, team)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 AS new
                 ON DUPLICATE KEY UPDATE
@@ -126,7 +126,7 @@ export class MySQLUsageStorage implements IUsageStorage {
             `;
 
             const breakdownQuery = `
-                INSERT INTO BreakdownData (day, type, scope_name, team, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users)
+                INSERT INTO CopilotUsageBreakdown (day, type, scope_name, team, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 AS new
                 ON DUPLICATE KEY UPDATE
@@ -142,16 +142,16 @@ export class MySQLUsageStorage implements IUsageStorage {
                     editor = new.editor;
             `;
 
-            for (const metric of metrics) {
+            for (const metric of CopilotUsage) {
                 //print the metric data and its parameters
                // console.log('metric:', metric);
                 // console.log('metric.day:', metric.day);
                 // console.log('team:', this.team);
                 // console.log('scope_name:', this.scope_name);
                 // console.log('type:', this.type);
-               // console.log ('metricsQuery:', metricsQuery);
+               // console.log ('CopilotUsageQuery:', CopilotUsageQuery);
 
-                await this.dbConnection!.execute(metricsQuery, [
+                await this.dbConnection!.execute(CopilotUsageQuery, [
                     metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name,team_slug
                 ]);
 
@@ -168,7 +168,7 @@ export class MySQLUsageStorage implements IUsageStorage {
         }
     }
 
-    public async readUsageData(): Promise<Metrics[]> {
+    public async readUsageData(): Promise<CopilotUsage[]> {
         await this.ensureInitialized();
         console.log('team in readUsageData:', this.team);
         try {
@@ -178,28 +178,28 @@ export class MySQLUsageStorage implements IUsageStorage {
             if (this.team === null || this.team === '') {
                 this.team = '';
             }
-            const metricsQuery = `
+            const CopilotUsageQuery = `
                 SELECT day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users 
-                FROM Metrics 
+                FROM CopilotUsage 
                 WHERE type = ? AND scope_name = ? AND team = ?`;
             const breakdownQuery = `
                 SELECT day, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users 
-                FROM BreakdownData 
+                FROM CopilotUsageBreakdown 
                 WHERE type = ? AND scope_name = ? AND team = ?`;
 
-            const [metricsRows] = await this.dbConnection!.execute(metricsQuery, [this.type, this.scope_name,this.team]);
+            const [CopilotUsageRows] = await this.dbConnection!.execute(CopilotUsageQuery, [this.type, this.scope_name,this.team]);
             const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [this.type, this.scope_name,this.team]);
 
-            const breakdownMap = new Map<string, BreakdownData[]>();
+            const breakdownMap = new Map<string, CopilotUsageBreakdown[]>();
             for (const row of breakdownRows as any[]) {
                 const key = `${row.day}`;
                 if (!breakdownMap.has(key)) {
                     breakdownMap.set(key, []);
                 }
-                breakdownMap.get(key)!.push(new BreakdownData(row));
+                breakdownMap.get(key)!.push(new CopilotUsageBreakdown(row));
             }
 
-            return (metricsRows as any[]).map((row: any) => new Metrics({
+            return (CopilotUsageRows as any[]).map((row: any) => new CopilotUsage({
                 ...row,
                 breakdown: breakdownMap.get(`${row.day}`) || []
             }));
@@ -209,13 +209,13 @@ export class MySQLUsageStorage implements IUsageStorage {
         }
     }
 
-    public async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<Metrics[]> {
+    public async queryUsageData(since?: string, until?: string, page: number = 1, per_page: number = 28): Promise<CopilotUsage[]> {
         await this.ensureInitialized();
         console.log('team in queryUsageData:', this.team);
         try {
             let query = `
                 SELECT DATE_FORMAT(day, '%Y-%m-%d') as day, total_suggestions_count, total_acceptances_count, total_lines_suggested, total_lines_accepted, total_active_users, total_chat_acceptances, total_chat_turns, total_active_chat_users 
-                FROM Metrics 
+                FROM CopilotUsage 
                 WHERE type = ? AND scope_name = ? AND  team = ?`;
 
             const params: any[] = [this.type, this.scope_name,this.team];
@@ -237,21 +237,21 @@ export class MySQLUsageStorage implements IUsageStorage {
             console.log('params:', params);
 
             const [rows] = await this.dbConnection!.execute(query, params);
-            const metrics = (rows as any[]).map((row: any) => new Metrics({
+            const CopilotUsages = (rows as any[]).map((row: any) => new CopilotUsage({
                 ...row,
                 breakdown: []
             }));
 
-            for (const metric of metrics) {
+            for (const usage of CopilotUsages) {
                 const breakdownQuery = `
                     SELECT DATE_FORMAT(day, '%Y-%m-%d') as day, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users 
-                    FROM BreakdownData 
+                    FROM CopilotUsageBreakdown 
                     WHERE day = ? AND type = ? AND scope_name = ? AND team = ?`;
-                const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [metric.day, this.type, this.scope_name, this.team]);
-                metric.breakdown = (breakdownRows as any[]).map((row: any) => new BreakdownData(row));
+                const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [usage.day, this.type, this.scope_name, this.team]);
+                usage.breakdown = (breakdownRows as any[]).map((row: any) => new CopilotUsageBreakdown(row));
             }
+            return CopilotUsages;
 
-            return metrics;
         } catch (error) {
             console.error('Error querying usage data from MySQL:', error);
             return [];

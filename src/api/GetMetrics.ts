@@ -1,7 +1,7 @@
-import { getMetricsApi } from './GitHubApi';
+import { getUsageApi } from './GitHubApi';
 import organizationMockedResponse from '../assets/organization_response_sample.json';
 import enterpriseMockedResponse from '../assets/enterprise_response_sample.json';
-import { Metrics } from '../model/Metrics';
+import { Metrics } from '../model/Copilot_Usage';
 
 export const getMetric = async (
   scopeType: string,
@@ -15,7 +15,7 @@ export const getMetric = async (
     const response = scopeType === "organization" ? organizationMockedResponse : enterpriseMockedResponse;
     return response.map((item: any) => new Metrics(item));
   } else if (from === 'github') {
-    return await getMetricsApi(scopeType, scopeName, token);
+    return await getUsageApi(scopeType, scopeName, token);
   } else if (from === 'repo') {
     // Logic to read historical data from the stored repo
     // Assuming we have a function getMetricsFromRepo to handle this logic

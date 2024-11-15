@@ -380,6 +380,66 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *               items:
  *                 $ref: '#/components/schemas/UsageData'
  */
+/**
+ * @swagger
+ * /api/:scopeType/:scopeName/copilot/metrics:
+ *   get:
+ *     summary: Get metrics data for a tenant
+ *     parameters:
+ *       - in: path
+ *         name: scopeType
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The scope type (organization, team, or enterprise)
+ *       - in: path
+ *         name: scopeName
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The scope name
+ *       - in: query
+ *         name: since
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: The start date for the metrics data
+ *       - in: query
+ *         name: until
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: The end date for the metrics data
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: The page number for pagination
+ *       - in: query
+ *         name: per_page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: The number of items per page for pagination
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Bearer token for authentication
+ *     responses:
+ *       200:
+ *         description: A list of metrics data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Metrics'
+ */
 
 /**
  * @swagger
@@ -481,7 +541,7 @@ const runJob = async () => {
                 const usageService = await CopilotServiceFactory.createUsageService(tenant);
                 await usageService.saveUsageData();
                 // Get current time and log it.
-                console.log(`Metrics Data saved successfully for tenant ${tenant.scopeName} at ${now}`);
+                console.log(`Usage Data saved successfully for tenant ${tenant.scopeName} at ${now}`);
 
                 // get the seat service for the tenant, and save the seat data
                 const seatService = await CopilotServiceFactory.createSeatService(tenant);
@@ -585,6 +645,82 @@ app.get(['/api/:scopeType/:scopeName/copilot/usage', '/api/:scopeType/:scopeName
     }
 });
 
+
+
+// Call metrics service for a tenant, it may include team level. and team may be within organization or enterprise or enterprise 
+app.get(['/api/:scopeType/:scopeName/copilot/metrics', '/api/:scopeType/:scopeName/team/:team_slug/copilot/metrics'],
+    async (req: Request, res: Response): Promise<void> => {
+    try {
+        let { scopeType, scopeName, team_slug } = req.params;
+        const { since, until, page = 1, per_page = 60 } = req.query;
+        const token = req.headers['authorization']?.split(' ')[1]; // Extract token from Bearer token
+
+        if (!scopeType || !scopeName || !token) {
+            res.status(400).send('Missing required parameters: scopeType, scopeName, token');
+            return;
+        }
+
+        // Validate inputs
+        const validationResult: ScopeValidationResult = validateScope(scopeType, scopeName, token, team_slug);
+        if (!validationResult.isValid) {
+            res.status(400).send(validationResult.errorMessage);
+            return;
+        }
+
+        // Update scopeType and team_slug with normalized values
+        scopeType = validationResult.normalizedScopeType;
+        team_slug = validationResult.normalizedTeamSlug;
+
+        const tenant = new Tenant(scopeType as 'organization' | 'enterprise', scopeName as string, token as string, team_slug as string, true);
+
+        // Validate the tenant before continuing
+        const isValidTenant = await tenant.validateTenant();
+        if (!isValidTenant) {
+            res.status(400).send('Invalid tenant data');
+            return;
+        }
+
+        // Create a tenant service to save the tenant data
+        const tenantService = TenantServiceFactory.createTenantService();
+
+        // to check if the auto save is enabled, if it is, then save the tenant data. 
+        if (tenantAutoSave) {
+            // Save the tenant data
+            const isTenantSaved = await tenantService.saveTenantData(tenant);
+            if (!isTenantSaved) {
+                res.status(400).send('The tenant data is not right, please double check the token');
+                return;
+            }
+        }
+       
+
+        // Initialize UsageService with the tenant
+        const metricsService = await CopilotServiceFactory.createMetricsService(tenant);
+      
+        let isMetricsDataSaved: boolean;
+        isMetricsDataSaved = await metricsService.saveMetrics();
+       
+
+        if (!isMetricsDataSaved) {
+            res.status(500).send('Failed to save usage data');
+            return;
+        }
+
+        // Query usage data
+        const data = await metricsService.queryMetrics(since as string, until as string, parseInt(page as string), parseInt(per_page as string));
+
+        // Send the data as response
+        res.json(data);
+    } catch (error) {
+       // res.status(500).send('Error fetching metrics from storage');
+       // return;
+       // if the error is a json object, then return it as json, otherwise, return the error message
+        // Parse the error message and return it as JSON
+        // const errorMessage = JSON.parse((error as Error).message);
+        // res.status(errorMessage.status).json(errorMessage);
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
 
 
 // get seat for a tenant by visting /copilot/billing/seats, it maybe include team level, and team maybe within organization or enterprise or enterprise

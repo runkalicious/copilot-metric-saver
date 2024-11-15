@@ -17,6 +17,8 @@ export class FileTenantStorage implements ITenantStorage {
      */
     private ensureFileExists() {
         if (!fs.existsSync(this.tenantsFilePath)) {
+            fs.writeFileSync(this.tenantsFilePath, JSON.stringify({ tenants: [] }, null, 2));
+            console.log('Tenants file created.');
         }
     }
 
@@ -28,19 +30,24 @@ export class FileTenantStorage implements ITenantStorage {
     async saveTenantData(tenant: Tenant): Promise<boolean> {
         try {
             const data = fs.readFileSync(this.tenantsFilePath, 'utf-8');
-            const tenants = JSON.parse(data).tenants;
+                const tenants = JSON.parse(data).tenants;
 
-            // Check if the tenant already exists
-            //const existingTenantIndex = tenants.findIndex((t: Tenant) => t.scopeName.toLocaleLowerCase() === tenant.scopeName && t.team === tenant.team && t.scopeType === tenant.scopeType);
-            const existingTenantIndex = tenants.findIndex((t: Tenant) => 
-                t.scopeName.toLowerCase() === tenant.scopeName.toLowerCase() && 
-                (t.team?.toLowerCase() || '') === (tenant.team?.toLowerCase() || '') && 
-                t.scopeType.toLowerCase() === tenant.scopeType.toLowerCase()
-            );
-            if (existingTenantIndex !== -1) {
-                // Update existing tenant
-                tenants[existingTenantIndex] = tenant;
-                console.log(`Tenant ${tenant.scopeName} updated.`);
+            if (tenants.length > 0) {
+                // Check if the tenant already exists
+                const existingTenantIndex = tenants.findIndex((t: Tenant) => 
+                    t.scopeName.toLowerCase() === tenant.scopeName.toLowerCase() && 
+                    (t.team?.toLowerCase() || '') === (tenant.team?.toLowerCase() || '') && 
+                    t.scopeType.toLowerCase() === tenant.scopeType.toLowerCase()
+                );
+                if (existingTenantIndex !== -1) {
+                    // Update existing tenant
+                    tenants[existingTenantIndex] = tenant;
+                    console.log(`Tenant ${tenant.scopeName} updated.`);
+                } else {
+                    // Add new tenant
+                    tenants.push(tenant);
+                    console.log(`Tenant ${tenant.scopeName} added.`);
+                }
             } else {
                 // Add new tenant
                 tenants.push(tenant);
@@ -95,10 +102,16 @@ export class FileTenantStorage implements ITenantStorage {
      async getActiveTenants(): Promise<{ scopeType: string, scopeName: string ,team: string}[]> {
         try {
             const tenants = await this.getTenantData();
+            if (tenants.length === 0) {
+                return [];
+            }
+            else{
             return tenants
                 .filter((tenant: Tenant) => tenant.isActive)
                 .map((tenant: Tenant) => ({ scopeType: tenant.scopeType, scopeName: tenant.scopeName , team: tenant.team}));
-        } catch (error) {
+            }    
+            } 
+            catch (error) {
             console.error('Error reading active tenant scopes from file:', error);
             return [];
         }

@@ -1,5 +1,5 @@
 // src/api/IUsageStorage.ts
-import { Metrics } from '../model/Metrics';
+import { Metrics } from '../model/Copilot_Usage';
 import { Tenant } from '../model/Tenant';
 
 export interface IUsageStorage {
