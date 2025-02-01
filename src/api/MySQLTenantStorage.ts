@@ -1,11 +1,11 @@
 // src/api/MySQLTenantStorage.ts
-import { createConnection, Connection, ResultSetHeader } from 'mysql2/promise';
+import { ResultSetHeader, Pool } from 'mysql2/promise';
 import { ITenantStorage } from './ITenantStorage';
 import { Tenant } from '../model/Tenant';
-import { storage_config } from '../../config';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLTenantStorage implements ITenantStorage {
-    private dbConnection: Connection | null = null;
+    private dbConnectionPool: Pool | null = null;
     private initialized: boolean = false;
     private initPromise: Promise<void>;
 
@@ -17,14 +17,7 @@ export class MySQLTenantStorage implements ITenantStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
-            console.log('Database connection established successfully in tenant module.');
+            this.dbConnectionPool = await MySQLConnectionPool.getConnectionPool();
             this.initialized = true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
@@ -48,7 +41,7 @@ export class MySQLTenantStorage implements ITenantStorage {
         `;
 
         try {
-            await this.dbConnection!.execute(createTenantsTableQuery);
+            await this.dbConnectionPool!.execute(createTenantsTableQuery);
             console.log('Tenants table initialized.');
         } catch (error) {
             console.error('Error initializing tenants table:', error);
@@ -65,7 +58,7 @@ export class MySQLTenantStorage implements ITenantStorage {
     async saveTenantData(tenant: Tenant): Promise<boolean> {
         await this.ensureInitialized();
         try {
-            await this.dbConnection!.execute(
+            await this.dbConnectionPool!.execute(
                 'INSERT INTO tenants (scopeName, scopeType, team,token, isActive) VALUES (?, ?, ?,?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), isActive = VALUES(isActive)',
                 [tenant.scopeName, tenant.scopeType, tenant.team,tenant.token, tenant.isActive]
             );
@@ -83,7 +76,7 @@ export class MySQLTenantStorage implements ITenantStorage {
                 SELECT scopeType, scopeName, token, team, isActive
                 FROM tenants
             `;
-            const [rows] = await this.dbConnection!.execute(query);
+            const [rows] = await this.dbConnectionPool!.execute(query);
             return (rows as any[]).map(row => new Tenant(row.scopeType, row.scopeName, row.token, row.team, row.isActive));
         } catch (error) {
             console.error('Error reading tenant data from MySQL:', error);
@@ -98,7 +91,7 @@ export class MySQLTenantStorage implements ITenantStorage {
     async queryTenantData(name: string): Promise<Tenant | undefined> {
         await this.ensureInitialized();
         try {
-            const [rows] = await this.dbConnection!.execute('SELECT * FROM tenants WHERE scopeName = ?', [name]);
+            const [rows] = await this.dbConnectionPool!.execute('SELECT * FROM tenants WHERE scopeName = ?', [name]);
             const tenants = (rows as any[]).map(row => new Tenant(row.scopeType, row.scopeName, row.token, row.isActive));
             return tenants.length > 0 ? tenants[0] : undefined;
         } catch (error) {
@@ -110,7 +103,7 @@ export class MySQLTenantStorage implements ITenantStorage {
     async getActiveTenants(): Promise<{ scopeType: string, scopeName: string }[]> {
         await this.ensureInitialized();
         try {
-            const [rows] = await this.dbConnection!.execute('SELECT scopeType, scopeName,team FROM tenants WHERE isActive = true');
+            const [rows] = await this.dbConnectionPool!.execute('SELECT scopeType, scopeName,team FROM tenants WHERE isActive = true');
             return rows as { scopeType: string, scopeName: string }[];
         } catch (error) {
             console.error('Error reading active tenants from MySQL:', error);
@@ -125,7 +118,7 @@ export class MySQLTenantStorage implements ITenantStorage {
                 DELETE FROM tenants
                 WHERE scopeName = ? AND scopeType = ? AND team = ?
             `;
-            const [result] = await this.dbConnection!.execute(query, [tenant.scopeName, tenant.scopeType, tenant.team]) as [ResultSetHeader, any];
+            const [result] = await this.dbConnectionPool!.execute(query, [tenant.scopeName, tenant.scopeType, tenant.team]) as [ResultSetHeader, any];
             console.log(' the query is ',query);
             console.log('Remove tenant data result:', result);
             return result.affectedRows > 0;

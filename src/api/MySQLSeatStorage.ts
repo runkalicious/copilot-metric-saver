@@ -1,12 +1,12 @@
 // src/api/MySQLSeatStorage.ts
-import { createConnection, Connection, OkPacket, RowDataPacket } from 'mysql2/promise';
+import { OkPacket, Pool, RowDataPacket } from 'mysql2/promise';
 import { ISeatStorage } from './ISeatStorage';
 import { Tenant } from '../model/Tenant';
 import { TotalSeats, Seat } from '../model/Seat';
-import { storage_config } from '../../config';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLSeatStorage implements ISeatStorage {
-    private dbConnection: Connection | null = null;
+    private dbConnectionPool: Pool | null = null;
     private scope_name: string = '';
     private type: string = '';
     private initialized: boolean = false;
@@ -19,15 +19,8 @@ export class MySQLSeatStorage implements ISeatStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
+            this.dbConnectionPool = await MySQLConnectionPool.getConnectionPool();
             this.initialized = true;
-            console.log('Database connection established successfully in seats module.');
         } catch (error) {
             console.error('Error connecting to the database:', error);
             this.initialized = false;
@@ -56,7 +49,7 @@ export class MySQLSeatStorage implements ISeatStorage {
             );
         `;
     
-        await this.dbConnection!.execute(createSeatTableQuery);
+        await this.dbConnectionPool!.execute(createSeatTableQuery);
         console.log('Database tables initialized for seats module');
     }
 
@@ -90,7 +83,7 @@ export class MySQLSeatStorage implements ISeatStorage {
     
         try {
            // console.log('Seat data received:', JSON.stringify(seatData, null, 2));
-            const [result] = await this.dbConnection!.query<OkPacket>(query, [values]);
+            const [result] = await this.dbConnectionPool!.query<OkPacket>(query, [values]);
             console.log(`Inserted rows: ${result.affectedRows}`);
             return true;
         } catch (error) {
@@ -125,7 +118,7 @@ export class MySQLSeatStorage implements ISeatStorage {
             const params: any[] = [this.type, this.scope_name, this.type, this.scope_name]; 
 
     
-            const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, params);
+            const [rows] = await this.dbConnectionPool!.execute<RowDataPacket[]>(query, params);
 
             // Manually map the query results to Seat class
             const seats = rows.map(row => new Seat({
@@ -190,7 +183,7 @@ export class MySQLSeatStorage implements ISeatStorage {
     
             console.log('Query:', query);
     
-            const [rows] = await this.dbConnection!.execute<RowDataPacket[]>(query, params);
+            const [rows] = await this.dbConnectionPool!.execute<RowDataPacket[]>(query, params);
             return [new TotalSeats(rows as Seat[])];
         } catch (error) {
             console.error('Error querying seat data from MySQL:', error);

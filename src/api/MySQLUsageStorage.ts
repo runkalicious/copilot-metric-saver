@@ -1,11 +1,11 @@
-import { createConnection, Connection } from 'mysql2/promise';
+import { Pool } from 'mysql2/promise';
 import { IUsageStorage } from './IUsageStorage';
 import { CopilotUsage, CopilotUsageBreakdown } from '../model/Copilot_Usage';
-import { storage_config } from '../../config';
 import { Tenant } from '../model/Tenant';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLUsageStorage implements IUsageStorage {
-    private dbConnection: Connection | null = null;
+    private dbConnectionPool: Pool | null = null;
     private scope_name: string = '';
     private type: string = '';
     private team?: string= '';
@@ -19,22 +19,13 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
-            console.log('Database connection established successfully in Usage Module.');
+            this.dbConnectionPool = await MySQLConnectionPool.getConnectionPool();
             this.initialized= true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
             this.initialized = false;
         }
-       
     }
-
 
     public async initializeScope(tenant: Tenant) {
         try {
@@ -87,8 +78,8 @@ export class MySQLUsageStorage implements IUsageStorage {
                 );
         `;
 
-        await this.dbConnection!.execute(createCopilotUsageTableQuery);
-        await this.dbConnection!.execute(createCopilotUsageBreakdownTableQuery);
+        await this.dbConnectionPool!.execute(createCopilotUsageTableQuery);
+        await this.dbConnectionPool!.execute(createCopilotUsageBreakdownTableQuery);
         console.log('Database Usage tables initialized.');
     }
 
@@ -151,12 +142,12 @@ export class MySQLUsageStorage implements IUsageStorage {
                 // console.log('type:', this.type);
                // console.log ('CopilotUsageQuery:', CopilotUsageQuery);
 
-                await this.dbConnection!.execute(CopilotUsageQuery, [
+                await this.dbConnectionPool!.execute(CopilotUsageQuery, [
                     metric.day, metric.total_suggestions_count, metric.total_acceptances_count, metric.total_lines_suggested, metric.total_lines_accepted, metric.total_active_users, metric.total_chat_acceptances, metric.total_chat_turns, metric.total_active_chat_users, this.type, this.scope_name,team_slug
                 ]);
 
                 for (const breakdown of metric.breakdown) {
-                    await this.dbConnection!.execute(breakdownQuery, [
+                    await this.dbConnectionPool!.execute(breakdownQuery, [
                         metric.day, this.type, this.scope_name,team_slug, breakdown.language, breakdown.editor, breakdown.suggestions_count, breakdown.acceptances_count, breakdown.lines_suggested, breakdown.lines_accepted, breakdown.active_users
                     ]);
                 }
@@ -187,8 +178,8 @@ export class MySQLUsageStorage implements IUsageStorage {
                 FROM CopilotUsageBreakdown 
                 WHERE type = ? AND scope_name = ? AND team = ?`;
 
-            const [CopilotUsageRows] = await this.dbConnection!.execute(CopilotUsageQuery, [this.type, this.scope_name,this.team]);
-            const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [this.type, this.scope_name,this.team]);
+            const [CopilotUsageRows] = await this.dbConnectionPool!.execute(CopilotUsageQuery, [this.type, this.scope_name,this.team]);
+            const [breakdownRows] = await this.dbConnectionPool!.execute(breakdownQuery, [this.type, this.scope_name,this.team]);
 
             const breakdownMap = new Map<string, CopilotUsageBreakdown[]>();
             for (const row of breakdownRows as any[]) {
@@ -236,7 +227,7 @@ export class MySQLUsageStorage implements IUsageStorage {
             console.log('query:', query);
             console.log('params:', params);
 
-            const [rows] = await this.dbConnection!.execute(query, params);
+            const [rows] = await this.dbConnectionPool!.execute(query, params);
             const CopilotUsages = (rows as any[]).map((row: any) => new CopilotUsage({
                 ...row,
                 breakdown: []
@@ -247,7 +238,7 @@ export class MySQLUsageStorage implements IUsageStorage {
                     SELECT DATE_FORMAT(day, '%Y-%m-%d') as day, language, editor, suggestions_count, acceptances_count, lines_suggested, lines_accepted, active_users 
                     FROM CopilotUsageBreakdown 
                     WHERE day = ? AND type = ? AND scope_name = ? AND team = ?`;
-                const [breakdownRows] = await this.dbConnection!.execute(breakdownQuery, [usage.day, this.type, this.scope_name, this.team]);
+                const [breakdownRows] = await this.dbConnectionPool!.execute(breakdownQuery, [usage.day, this.type, this.scope_name, this.team]);
                 usage.breakdown = (breakdownRows as any[]).map((row: any) => new CopilotUsageBreakdown(row));
             }
             return CopilotUsages;

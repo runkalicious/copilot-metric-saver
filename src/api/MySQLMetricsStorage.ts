@@ -1,6 +1,5 @@
-import { createConnection, Connection, RowDataPacket } from 'mysql2/promise';
+import { Pool, RowDataPacket } from 'mysql2/promise';
 import { IMetricsStorage } from './IMetricsStorage';
-import { storage_config } from '../../config';
 import { Tenant } from '../model/Tenant';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -20,9 +19,10 @@ import {
   CopilotDotcomPullRequestsRepository,
   CopilotDotcomPullRequestsRepositoryModel
 } from '../model/Copilot_Metrics';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLMetricsStorage implements IMetricsStorage {
-  private dbConnection: Connection | null = null;
+  private dbConnectionPool: Pool | null = null;
   private scope_name: string = '';
   private type: string = '';
   private team?: string = '';
@@ -36,14 +36,7 @@ export class MySQLMetricsStorage implements IMetricsStorage {
 
   private async initConnection() {
     try {
-      this.dbConnection = await createConnection({
-        host: storage_config.DB?.HOST,
-        user: storage_config.DB?.USER,
-        password: storage_config.DB?.PASSWORD,
-        database: storage_config.DB?.DATABASE,
-        port: storage_config.DB?.PORT,
-      });
-      console.log('Database connection established successfully in Metrics Module.');
+      this.dbConnectionPool = await MySQLConnectionPool.getConnectionPool();
       this.initialized = true;
     } catch (error) {
       console.error('Error connecting to the database:', error);
@@ -68,7 +61,7 @@ export class MySQLMetricsStorage implements IMetricsStorage {
     const sqlFilePath = join(__dirname, 'sql_file', 'mysql_copilot_metrics.sql');
     const sql = readFileSync(sqlFilePath, 'utf-8');
   
-    const connection = this.dbConnection;
+    const connection = await this.dbConnectionPool?.getConnection();
     if (!connection) {
       console.error('Database connection is not initialized.');
       return;
@@ -82,6 +75,8 @@ export class MySQLMetricsStorage implements IMetricsStorage {
       console.log('Database Metrics tables initialized.');
     } catch (error) {
       console.error('Error initializing database:', error);
+    } finally {
+      connection.release();
     }
   }
 
@@ -98,7 +93,7 @@ public async saveMetrics(metricsData: CopilotMetrics[], team_slug?: string): Pro
   if (!team_slug) {
     team_slug = this.team;
   }
-  const connection = this.dbConnection;
+  const connection = await this.dbConnectionPool?.getConnection();
   if (!connection) {
     console.error('Database connection is not initialized.');
     return false;
@@ -465,13 +460,15 @@ public async saveMetrics(metricsData: CopilotMetrics[], team_slug?: string): Pro
   } catch (err) {
     console.error('Error in saveMetrics:', err);
     return false;
+  } finally {
+    connection.release();
   }
 }
 
 
   // assembleMetrics method
   private async assembleMetrics(metricsRow: any): Promise<CopilotMetrics> {
-    const connection = this.dbConnection;
+    const connection = await this.dbConnectionPool?.getConnection();
     if (!connection) {
       console.error('Database connection is not initialized.');
       throw new Error('Database connection is not initialized.');
@@ -601,6 +598,7 @@ public async saveMetrics(metricsData: CopilotMetrics[], team_slug?: string): Pro
     // Assemble copilot_ide_chat (similar logic)
     // Assemble copilot_dotcom_chat (similar logic)
     // Assemble copilot_dotcom_pull_requests (similar logic)
+    connection.release();
 
     return copilotMetrics;
   }
@@ -612,7 +610,7 @@ public async saveMetrics(metricsData: CopilotMetrics[], team_slug?: string): Pro
     if (!team_slug) {
       team_slug = this.team;
     }
-    const connection = this.dbConnection;
+    const connection = await this.dbConnectionPool?.getConnection();
     if (!connection) {
       console.error('Database connection is not initialized.');
       throw new Error('Database connection is not initialized.');
@@ -642,6 +640,8 @@ public async saveMetrics(metricsData: CopilotMetrics[], team_slug?: string): Pro
     } catch (error) {
       console.error('Error fetching metrics:', error);
       return [];
+    } finally {
+      connection.release();
     }
   }
 
@@ -656,7 +656,7 @@ public async queryMetrics(
   if (!team_slug) {
     team_slug = this.team;
   }
-  const connection = this.dbConnection;
+  const connection = await this.dbConnectionPool?.getConnection();
   if (!connection) {
     console.error('Database connection is not initialized.');
     return [];
@@ -696,11 +696,13 @@ public async queryMetrics(
   } catch (error) {
     console.error('Error querying metrics:', error);
     return [];
+  } finally {
+    connection.release();
   }
 }
 
 private async removeMetrics(metricsId: number): Promise<boolean> {
-  const connection = this.dbConnection;
+  const connection = await this.dbConnectionPool?.getConnection();
   if (!connection) {
     console.error('Database connection is not initialized.');
     return false;
@@ -733,6 +735,8 @@ private async removeMetrics(metricsId: number): Promise<boolean> {
   } catch (error) {
     console.error('Error removing metrics:', error);
     return false;
+  } finally {
+    connection.release();
   }
 }
 
