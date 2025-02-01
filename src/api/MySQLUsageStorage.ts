@@ -3,6 +3,7 @@ import { IUsageStorage } from './IUsageStorage';
 import { CopilotUsage, CopilotUsageBreakdown } from '../model/Copilot_Usage';
 import { storage_config } from '../../config';
 import { Tenant } from '../model/Tenant';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLUsageStorage implements IUsageStorage {
     private dbConnection: Connection | null = null;
@@ -19,22 +20,13 @@ export class MySQLUsageStorage implements IUsageStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
-            console.log('Database connection established successfully in Usage Module.');
+            this.dbConnection = await MySQLConnectionPool.getConnectionPool();
             this.initialized= true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
             this.initialized = false;
         }
-       
     }
-
 
     public async initializeScope(tenant: Tenant) {
         try {

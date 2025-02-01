@@ -20,6 +20,7 @@ import {
   CopilotDotcomPullRequestsRepository,
   CopilotDotcomPullRequestsRepositoryModel
 } from '../model/Copilot_Metrics';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLMetricsStorage implements IMetricsStorage {
   private dbConnection: Connection | null = null;
@@ -36,14 +37,7 @@ export class MySQLMetricsStorage implements IMetricsStorage {
 
   private async initConnection() {
     try {
-      this.dbConnection = await createConnection({
-        host: storage_config.DB?.HOST,
-        user: storage_config.DB?.USER,
-        password: storage_config.DB?.PASSWORD,
-        database: storage_config.DB?.DATABASE,
-        port: storage_config.DB?.PORT,
-      });
-      console.log('Database connection established successfully in Metrics Module.');
+      this.dbConnection = await MySQLConnectionPool.getConnectionPool();
       this.initialized = true;
     } catch (error) {
       console.error('Error connecting to the database:', error);

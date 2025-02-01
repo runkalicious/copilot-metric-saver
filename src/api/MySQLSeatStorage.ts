@@ -4,6 +4,7 @@ import { ISeatStorage } from './ISeatStorage';
 import { Tenant } from '../model/Tenant';
 import { TotalSeats, Seat } from '../model/Seat';
 import { storage_config } from '../../config';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLSeatStorage implements ISeatStorage {
     private dbConnection: Connection | null = null;
@@ -19,15 +20,8 @@ export class MySQLSeatStorage implements ISeatStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
+            this.dbConnection = await MySQLConnectionPool.getConnectionPool();
             this.initialized = true;
-            console.log('Database connection established successfully in seats module.');
         } catch (error) {
             console.error('Error connecting to the database:', error);
             this.initialized = false;

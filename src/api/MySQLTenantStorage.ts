@@ -3,6 +3,7 @@ import { createConnection, Connection, ResultSetHeader } from 'mysql2/promise';
 import { ITenantStorage } from './ITenantStorage';
 import { Tenant } from '../model/Tenant';
 import { storage_config } from '../../config';
+import { MySQLConnectionPool } from './MySQLConnectionPool';
 
 export class MySQLTenantStorage implements ITenantStorage {
     private dbConnection: Connection | null = null;
@@ -17,14 +18,7 @@ export class MySQLTenantStorage implements ITenantStorage {
 
     private async initConnection() {
         try {
-            this.dbConnection = await createConnection({
-                host: storage_config.DB?.HOST,
-                user: storage_config.DB?.USER,
-                password: storage_config.DB?.PASSWORD,
-                database: storage_config.DB?.DATABASE,
-                port: storage_config.DB?.PORT,
-            });
-            console.log('Database connection established successfully in tenant module.');
+            this.dbConnection = await MySQLConnectionPool.getConnectionPool();
             this.initialized = true;
         } catch (error) {
             console.error('Error connecting to the database:', error);
